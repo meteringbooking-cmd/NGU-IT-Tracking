@@ -41,7 +41,7 @@ export const EMAILJS = {
   serviceId: "service_b3nh4bo",
   publicKey: "ziLnha91scpGjFABh",
   templateIT: "template_ojea9np",        // emails to the IT team / assignees
-  templateExternal: "template_ojea9np",  // emails to the person who raised the ticket
+  templateExternal: "template_o3ttx4t",  // emails to the person who raised the ticket
 };
 emailjs.init({ publicKey: EMAILJS.publicKey });
 
