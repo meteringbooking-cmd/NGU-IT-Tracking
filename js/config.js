@@ -48,19 +48,32 @@ emailjs.init({ publicKey: EMAILJS.publicKey });
  * Template variables available: to_email, to_name, from_name, reply_to, subject, message,
  * ticket_ref, ticket_title, ticket_link, priority, status, requester_name, requester_email.
  */
-export async function sendEmail(kind, params) {
-  if (!params.to_email) return false;
-  const templateId = kind === "external" ? EMAILJS.templateExternal : EMAILJS.templateIT;
-  try {
-    await emailjs.send(EMAILJS.serviceId, templateId, {
-      from_name: "IT Helpdesk",
-      ...params,
-    });
-    return true;
-  } catch (err) {
-    console.warn("Email failed", err);
-    return false;
+// EmailJS rejects more than ~1 request per second, so emails are queued and sent one at a time.
+let emailQueue = Promise.resolve();
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export function sendEmail(kind, params) {
+  if (!params.to_email) {
+    console.warn(`Email not sent (${kind}): no recipient address.`, params.subject);
+    return Promise.resolve(false);
   }
+  const templateId = kind === "external" ? EMAILJS.templateExternal : EMAILJS.templateIT;
+  const job = emailQueue.then(async () => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await emailjs.send(EMAILJS.serviceId, templateId, { from_name: "IT Helpdesk", ...params });
+        console.info(`Email sent (${kind}) to ${params.to_email}: ${params.subject}`);
+        await wait(1100);
+        return true;
+      } catch (err) {
+        console.warn(`Email attempt ${attempt} failed (${kind}) to ${params.to_email}`, err?.status, err?.text || err);
+        if (attempt < 3) await wait(err?.status === 429 ? 2000 : 1200);
+      }
+    }
+    return false;
+  });
+  emailQueue = job.catch(() => {});
+  return job;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +93,7 @@ export const DONE = ["Resolved", "Closed"];
 
 export const DEFAULT_SETTINGS = {
   teamName: "IT Helpdesk",
-  itEmail: "",
+  itEmail: "itsupport@next-gen.uk",
   categories: ["Hardware", "Software", "Network", "Accounts & access", "Email", "Printing", "Phones", "Other"],
   slas: {  // hours
     P1: { response: 1, resolve: 4 },
@@ -103,7 +116,7 @@ export async function loadSettings() {
 export function mergeSettings(data) {
   const s = structuredClone(DEFAULT_SETTINGS);
   if (!data) return s;
-  return { ...s, ...data, slas: { ...s.slas, ...(data.slas || {}) } };
+  return { ...s, ...data, itEmail: data.itEmail || s.itEmail, slas: { ...s.slas, ...(data.slas || {}) } };
 }
 
 // ---------------------------------------------------------------------------
