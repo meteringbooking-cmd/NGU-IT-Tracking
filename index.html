@@ -6,66 +6,78 @@
   <title>Raise an IT ticket</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="public">
-<header class="topbar">
-  <span class="brand"><span class="logo">IT</span><span id="team-name">IT Helpdesk</span></span>
-  <span class="spacer"></span>
-  <a class="nav" href="dashboard.html">IT staff sign-in</a>
-</header>
-
-<main class="narrow">
-  <section id="form-view">
-    <div class="pagehead"><div>
-      <h1>Raise an IT ticket</h1>
-      <div class="muted">Tell us what's wrong and we'll get back to you by email.</div>
-    </div></div>
-
-    <form id="ticket-form" class="panel" novalidate>
-      <div class="row">
-        <div class="field"><label for="requesterName">Your name *</label><input id="requesterName" name="requesterName" required autocomplete="name"></div>
-        <div class="field"><label for="requesterEmail">Your email *</label><input id="requesterEmail" name="requesterEmail" type="email" required autocomplete="email"></div>
-      </div>
-      <div class="row">
-        <div class="field"><label for="department">Department / team</label><input id="department" name="department"></div>
-        <div class="field"><label for="phone">Phone or extension</label><input id="phone" name="phone" autocomplete="tel"></div>
-      </div>
-
-      <div class="field"><label for="category">What's it about? *</label>
-        <select id="category" name="category" required><option value="">Choose…</option></select></div>
-
-      <fieldset class="field urgency">
-        <legend>How urgent is it? *</legend>
-        <div id="urgency-options" class="choice-grid"></div>
-      </fieldset>
-
-      <div class="field"><label for="title">Short summary *</label>
-        <input id="title" name="title" required maxlength="150" placeholder="e.g. Laptop won't connect to Wi-Fi"></div>
-      <div class="field"><label for="description">Details *</label>
-        <textarea id="description" name="description" required maxlength="5000" rows="7"
-          placeholder="What's happening, when it started, any error messages, what you've tried…"></textarea></div>
-
-      <div class="field"><label for="files">Screenshots or files (optional)</label>
-        <input id="files" name="files" type="file" multiple>
-        <div class="muted small">Up to 5 files, 10 MB each.</div></div>
-
-      <div id="form-error" class="flash error" hidden></div>
-      <button id="submit-btn" class="btn primary lg" type="submit">Submit ticket</button>
-      <span id="progress" class="muted small" style="margin-left:10px"></span>
-    </form>
-  </section>
-
-  <section id="done-view" hidden>
-    <div class="panel done">
-      <div class="tick" aria-hidden="true">✓</div>
-      <h1>Thanks, we've got it</h1>
-      <p>Your reference is <strong id="done-ref" class="ref-big"></strong></p>
-      <p class="muted" id="done-email"></p>
-      <p><a id="done-track" class="btn primary" href="#">Track this ticket</a>
-         <button class="btn" id="another-btn" type="button">Raise another</button></p>
-      <p class="muted small">Bookmark the tracking link. You can use it to check progress and reply to IT.</p>
+<body>
+<div class="split">
+  <aside class="brand-panel">
+    <a class="brand" href="index.html"><span class="mark">IT</span><span class="team-name">IT Helpdesk</span></a>
+    <h1>Get help from IT</h1>
+    <p class="lede">Tell us what's wrong and we'll get it sorted. You'll hear back by email.</p>
+    <ol class="how">
+      <li><strong>Send us the details</strong><span>You'll get a reference number straight away.</span></li>
+      <li><strong>We pick it up</strong><span>Someone from IT takes ownership and gets in touch.</span></li>
+      <li><strong>Follow progress</strong><span>Use the link in your email to check the status or send us more information.</span></li>
+    </ol>
+    <div class="brand-foot">
+      If you can't work at all, raise the ticket as <strong style="color:#fff">Critical</strong> and IT will treat it as a priority.
+      <p style="margin:14px 0 0">IT team? <a href="dashboard.html">Sign in to the dashboard</a></p>
     </div>
-  </section>
-</main>
+  </aside>
+
+  <main class="form-side">
+    <div class="form-col">
+      <section id="form-view">
+        <form id="ticket-form" class="panel" novalidate>
+          <h3 class="section-title">About you</h3>
+          <div class="row">
+            <div class="field"><label for="requesterName">Name <span class="req">*</span></label><input id="requesterName" name="requesterName" required autocomplete="name"></div>
+            <div class="field"><label for="requesterEmail">Email <span class="req">*</span></label><input id="requesterEmail" name="requesterEmail" type="email" required autocomplete="email"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label for="department">Department or team</label><input id="department" name="department"></div>
+            <div class="field"><label for="phone">Phone or extension</label><input id="phone" name="phone" autocomplete="tel"></div>
+          </div>
+
+          <h3 class="section-title">The problem</h3>
+          <div class="field"><label for="title">Summary <span class="req">*</span></label>
+            <input id="title" name="title" required maxlength="150" placeholder="For example: Laptop won't connect to Wi-Fi"></div>
+          <div class="field"><label for="category">Category <span class="req">*</span></label>
+            <select id="category" name="category" required><option value="">Choose a category</option></select></div>
+          <fieldset class="field">
+            <legend>How urgent is it? <span class="req">*</span></legend>
+            <div id="urgency-options" class="choice-grid"></div>
+          </fieldset>
+          <div class="field"><label for="description">Details <span class="req">*</span></label>
+            <textarea id="description" name="description" required maxlength="5000" rows="7"
+              placeholder="What's happening, when it started, any error messages, and what you've already tried."></textarea></div>
+          <div class="field"><label for="files">Screenshots or files</label>
+            <input id="files" name="files" type="file" multiple>
+            <div class="hint">Optional. Up to 5 files, 10 MB each.</div></div>
+
+          <div id="form-error" class="flash error" hidden></div>
+          <div class="form-actions">
+            <button id="submit-btn" class="btn primary lg" type="submit">Submit ticket</button>
+            <span id="progress" class="muted small"></span>
+          </div>
+        </form>
+      </section>
+
+      <section id="done-view" hidden>
+        <div class="panel done">
+          <div class="tick" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div>
+          <h1>Ticket submitted</h1>
+          <p class="muted">Your reference number is</p>
+          <div id="done-ref" class="ref-big"></div>
+          <p id="done-email"></p>
+          <div class="actions">
+            <a id="done-track" class="btn primary" href="#">Track this ticket</a>
+            <button class="btn" id="another-btn" type="button">Raise another ticket</button>
+          </div>
+          <p class="muted small">Keep the tracking link. You can use it to check progress and reply to IT.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
 
 <script type="module">
 import {
@@ -75,7 +87,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const settings = await loadSettings();
-$("team-name").textContent = settings.teamName;
+document.querySelectorAll(".team-name").forEach((el) => (el.textContent = settings.teamName));
 document.title = `Raise an IT ticket · ${settings.teamName}`;
 
 $("category").insertAdjacentHTML("beforeend",
@@ -83,25 +95,27 @@ $("category").insertAdjacentHTML("beforeend",
 $("urgency-options").innerHTML = PRIORITIES.map((p) => `
   <label class="choice">
     <input type="radio" name="priority" value="${p}" ${p === "P3" ? "checked" : ""}>
-    <span><span class="pri ${p}">${PRIORITY_LABELS[p]}</span><span class="muted small">${esc(PRIORITY_HELP[p])}</span></span>
+    <span><span class="pri ${p}">${PRIORITY_LABELS[p]}</span><span class="muted">${esc(PRIORITY_HELP[p])}</span></span>
   </label>`).join("");
 
 // Remember name/email/department on this device for next time
 const REMEMBER = ["requesterName", "requesterEmail", "department", "phone"];
-try { REMEMBER.forEach((k) => { const v = localStorage.getItem("it_" + k); if (v) $(k).value = v; }); } catch {}
+const restore = () => { try { REMEMBER.forEach((k) => { const v = localStorage.getItem("it_" + k); if (v) $(k).value = v; }); } catch {} };
+restore();
 
 $("ticket-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = e.target;
   const err = $("form-error");
   err.hidden = true;
+  const showError = (msg) => { err.textContent = msg; err.hidden = false; err.scrollIntoView({ block: "center" }); };
 
   const data = Object.fromEntries(new FormData(f));
-  const required = { requesterName: "your name", requesterEmail: "your email", category: "what it's about",
-                     title: "a short summary", description: "some details" };
+  const required = { requesterName: "your name", requesterEmail: "your email", title: "a summary",
+                     category: "a category", description: "the details" };
   const missing = Object.entries(required).filter(([k]) => !String(data[k] || "").trim()).map(([, v]) => v);
-  if (missing.length) return showError(`Please add ${missing.join(", ")}.`);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.requesterEmail.trim())) return showError("That email address doesn't look right.");
+  if (missing.length) return showError(`Add ${missing.join(", ")} to continue.`);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.requesterEmail.trim())) return showError("Check your email address. It needs to look like name@company.co.uk.");
   const fileErr = validateFiles(f.files.files);
   if (fileErr) return showError(fileErr);
 
@@ -129,37 +143,35 @@ $("ticket-form").addEventListener("submit", async (e) => {
       (data.department ? `\nDepartment: ${data.department}` : "") + (data.phone ? `\nPhone: ${data.phone}` : "") +
       `\n\n${data.description}`;
     const common = { ticket_ref: t.ref, ticket_title: data.title, priority: `${data.priority} ${PRIORITY_LABELS[data.priority]}`,
-      status: "New", requester_name: data.requesterName, requester_email: data.requesterEmail };
-    const [toIT, toUser] = await Promise.all([
+      status: "New", requester_name: data.requesterName, requester_email: data.requesterEmail, from_name: settings.teamName };
+    const [, toUser] = await Promise.all([
       sendEmail("it", { ...common, to_email: settings.itEmail, to_name: settings.teamName, reply_to: data.requesterEmail,
         subject: `New ticket ${t.ref}: ${data.title}`, message: summary, ticket_link: dashLink(t.id) }),
       sendEmail("external", { ...common, to_email: data.requesterEmail, to_name: data.requesterName,
         subject: `We've received your request ${t.ref}`,
-        message: `Hello ${data.requesterName},\n\nThanks - we've logged your request and the IT team will be in touch.\n\n` +
-          `Reference: ${t.ref}\n${data.title}\n\nYou can check progress or add more information here:\n${trackLink(t.id)}`,
+        message: `Hello ${data.requesterName},\n\nThanks for getting in touch. We've logged your request and the IT team will be in touch.\n\n` +
+          `You can check progress or add more information at any time using the link below.`,
         ticket_link: trackLink(t.id) }),
     ]);
 
     $("done-ref").textContent = t.ref;
     $("done-email").textContent = toUser
-      ? `We've emailed a confirmation to ${data.requesterEmail}.`
-      : "Keep a note of this reference. We couldn't send a confirmation email.";
+      ? `We've sent a confirmation to ${data.requesterEmail}.`
+      : "Note this reference down. The confirmation email couldn't be sent.";
     $("done-track").href = trackLink(t.id);
     $("form-view").hidden = true;
     $("done-view").hidden = false;
     f.reset();
-    try { REMEMBER.forEach((k) => { const v = localStorage.getItem("it_" + k); if (v) $(k).value = v; }); } catch {}
+    restore();
     window.scrollTo(0, 0);
   } catch (ex) {
     console.error(ex);
-    showError("Sorry, something went wrong and the ticket wasn't saved. Please try again, or call IT if it's urgent.");
+    showError("The ticket wasn't saved because of a connection problem. Try again, or phone IT if it's urgent.");
   } finally {
     btn.disabled = false;
     btn.textContent = "Submit ticket";
     $("progress").textContent = "";
   }
-
-  function showError(msg) { err.textContent = msg; err.hidden = false; err.scrollIntoView({ block: "center" }); }
 });
 
 $("another-btn").addEventListener("click", () => {

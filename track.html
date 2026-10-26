@@ -6,43 +6,45 @@
   <title>Track your IT ticket</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="public">
-<header class="topbar">
-  <a class="brand" href="index.html"><span class="logo">IT</span><span id="team-name">IT Helpdesk</span></a>
+<body>
+<header class="pubbar">
+  <a class="brand" href="index.html"><span class="mark">IT</span><span class="team-name">IT Helpdesk</span></a>
   <span class="spacer"></span>
-  <a class="nav" href="index.html">Raise a ticket</a>
+  <a class="nav" href="index.html">Raise a new ticket</a>
 </header>
 
-<main class="narrow">
+<main class="page-narrow">
   <div id="loading" class="empty">Loading your ticket…</div>
   <div id="missing" class="panel" hidden>
-    <h1>Ticket not found</h1>
-    <p class="muted">The link may be incomplete. Use the link from your confirmation email, or <a href="index.html">raise a new ticket</a>.</p>
+    <h1 style="margin-bottom:8px">We couldn't find that ticket</h1>
+    <p class="muted" style="margin:0">The link may be incomplete. Open the link from your confirmation email, or <a href="index.html">raise a new ticket</a>.</p>
   </div>
 
   <section id="ticket" hidden>
-    <div class="pagehead"><div>
-      <div class="muted small" id="t-ref"></div>
+    <div class="ticket-hero">
+      <div class="ref" id="t-ref"></div>
       <h1 id="t-title"></h1>
       <div id="t-badges" class="badges"></div>
-    </div></div>
+    </div>
 
-    <div id="status-steps" class="steps"></div>
+    <div id="status-steps" class="progress"></div>
 
     <section class="panel">
       <h2>Your request</h2>
       <p id="t-desc" class="ticket-desc"></p>
-      <dl class="meta inline-meta" id="t-meta"></dl>
+      <dl class="inline-meta" id="t-meta"></dl>
     </section>
 
-    <section class="panel" style="margin-top:16px">
-      <h2>Conversation with IT</h2>
+    <section class="panel" style="margin-top:20px">
+      <h2>Messages</h2>
       <ul class="timeline" id="thread"></ul>
-      <form id="reply-form" style="margin-top:12px">
-        <div class="field"><label for="reply">Add more information or reply</label>
-          <textarea id="reply" maxlength="5000" required placeholder="Type your message to IT…"></textarea></div>
-        <button class="btn primary" id="reply-btn">Send to IT</button>
-        <span class="muted small" id="reopen-note"></span>
+      <form id="reply-form" style="margin-top:20px">
+        <div class="field"><label for="reply">Send a message to IT</label>
+          <textarea id="reply" maxlength="5000" required placeholder="Add more information or answer a question from IT."></textarea></div>
+        <div class="update-foot">
+          <span class="muted small" id="reopen-note"></span>
+          <button class="btn primary" id="reply-btn">Send message</button>
+        </div>
       </form>
     </section>
   </section>
@@ -57,7 +59,7 @@ import { doc, collection, onSnapshot, query, orderBy, writeBatch, serverTimestam
 const $ = (id) => document.getElementById(id);
 const id = new URLSearchParams(location.search).get("id");
 const settings = await loadSettings();
-$("team-name").textContent = settings.teamName;
+document.querySelectorAll(".team-name").forEach((el) => (el.textContent = settings.teamName));
 let ticket = null;
 
 if (!id) { $("loading").hidden = true; $("missing").hidden = false; }
@@ -74,10 +76,11 @@ else {
     $("thread").innerHTML = items.length ? items.map((u) => `
       <li class="comment ${u.authorType === "staff" ? "public" : "requester"}">
         <div class="comment-head"><span class="avatar">${esc(initials(u.authorName))}</span>
-          <strong>${esc(u.authorType === "staff" ? u.authorName + " (IT)" : "You")}</strong>
-          <span class="muted small" title="${esc(fmtDate(u.createdAt))}">${esc(ago(u.createdAt))}</span></div>
+          <strong>${esc(u.authorType === "staff" ? u.authorName : "You")}</strong>
+          ${u.authorType === "staff" ? `<span class="badge">IT team</span>` : ""}
+          <span class="when" title="${esc(fmtDate(u.createdAt))}">${esc(ago(u.createdAt))}</span></div>
         <div class="comment-body">${esc(u.body)}</div>
-      </li>`).join("") : `<li class="muted">No messages yet. IT will reply here and by email.</li>`;
+      </li>`).join("") : `<li class="muted">No messages yet. When IT replies, you'll see it here and get an email.</li>`;
   });
 }
 
@@ -88,24 +91,22 @@ function render() {
   $("t-ref").textContent = t.ref;
   $("t-title").textContent = t.title;
   $("t-badges").innerHTML = `<span class="badge st-${esc(t.status.split(" ")[0])}">${esc(t.status)}</span>
-    <span class="pri ${esc(t.priority)}">${esc(t.priority)} ${esc(PRIORITY_LABELS[t.priority] || "")}</span>`;
+    <span class="pri ${esc(t.priority)}">${esc(PRIORITY_LABELS[t.priority] || "")} priority</span>`;
   $("t-desc").textContent = t.description || "";
   $("t-meta").innerHTML = [
     ["Raised", fmtDate(t.createdAt)],
-    ["Category", t.category || "—"],
-    ["Being handled by", t.assigneeName || "Waiting to be picked up"],
-    ["Last update", ago(t.updatedAt)],
+    ["Category", t.category || "None"],
+    ["Handled by", t.assigneeName || "Not yet assigned"],
+    ["Last updated", ago(t.updatedAt)],
   ].map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("");
 
-  const steps = ["New", "Open", "In progress", "Resolved"];
-  const idx = t.status === "Closed" ? 3 : t.status === "On hold" ? 2 : steps.indexOf(t.status);
+  const steps = ["Received", "Assigned", "In progress", "Resolved"];
+  const idx = { New: 0, Open: 1, "In progress": 2, "On hold": 2, Resolved: 3, Closed: 3 }[t.status] ?? 0;
   $("status-steps").innerHTML = steps.map((s, i) =>
-    `<div class="step ${i < idx ? "done" : i === idx ? "on" : ""}"><span class="dot"></span>${
+    `<div class="step ${i < idx ? "done" : i === idx ? (i === 3 ? "done" : "on") : ""}"><span class="dot"></span>${
       i === 2 && t.status === "On hold" ? "On hold" : i === 3 && t.status === "Closed" ? "Closed" : s}</div>`).join("");
 
-  const closed = ["Resolved", "Closed"].includes(t.status);
-  $("reopen-note").textContent = t.status === "Resolved" ? "Replying will reopen this ticket." :
-    t.status === "Closed" ? "This ticket is closed. Please raise a new one if you still need help." : "";
+  $("reopen-note").textContent = t.status === "Resolved" ? "Sending a message will reopen this ticket." : "";
   $("reply-form").hidden = t.status === "Closed";
 }
 
@@ -125,17 +126,19 @@ $("reply-form").addEventListener("submit", async (e) => {
     batch.update(doc(db, COL.tickets, id), patch);
     await batch.commit();
     $("reply").value = "";
+    toast("Message sent to IT.");
     sendEmail("it", {
       to_email: ticket.assigneeEmail || settings.itEmail, to_name: ticket.assigneeName || settings.teamName,
-      reply_to: ticket.requesterEmail, subject: `[${ticket.ref}] ${ticket.requesterName || "Requester"} replied`,
-      message: `${ticket.requesterName || "The requester"} replied on ${ticket.ref} (${ticket.title}):\n\n${body}`,
+      from_name: settings.teamName, reply_to: ticket.requesterEmail,
+      subject: `[${ticket.ref}] ${ticket.requesterName || "Requester"} replied`,
+      message: `${ticket.requesterName || "The requester"} sent a message on ${ticket.ref}:\n\n${body}`,
       ticket_ref: ticket.ref, ticket_title: ticket.title, ticket_link: dashLink(id),
       priority: ticket.priority, status: patch.status || ticket.status,
       requester_name: ticket.requesterName, requester_email: ticket.requesterEmail,
     });
   } catch (err) {
     console.error(err);
-    toast("Sorry, your message couldn't be sent. Please try again.", "error");
+    toast("Your message wasn't sent because of a connection problem. Try again.", "error");
   } finally { btn.disabled = false; }
 });
 </script>

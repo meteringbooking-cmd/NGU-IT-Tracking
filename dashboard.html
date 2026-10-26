@@ -7,80 +7,111 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-9"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+</svg>
 
 <!-- ======================= Signed-out screens ======================= -->
-<div id="auth-view" hidden>
-  <div class="auth">
-    <div class="brand"><span class="logo">IT</span><span class="team-name">IT Helpdesk</span></div>
+<div id="auth-view" class="split" hidden>
+  <aside class="brand-panel">
+    <a class="brand" href="index.html"><span class="mark">IT</span><span class="team-name">IT Helpdesk</span></a>
+    <h1>IT team dashboard</h1>
+    <p class="lede">Manage the ticket queue, reply to colleagues and keep an eye on response times.</p>
+    <div class="brand-foot">Need help from IT? <a href="index.html">Raise a ticket</a></div>
+  </aside>
+  <main class="auth-side">
+    <div class="auth-box">
+      <form id="signin-form" hidden>
+        <h2>Sign in</h2>
+        <p class="sub">Use your helpdesk account.</p>
+        <div class="field"><label for="si-email">Email</label><input id="si-email" type="email" required autocomplete="username"></div>
+        <div class="field"><label for="si-pass">Password</label><input id="si-pass" type="password" required autocomplete="current-password"></div>
+        <div class="flash error" id="si-err" hidden></div>
+        <button class="btn primary block lg">Sign in</button>
+        <div class="auth-links"><button type="button" class="linkbtn" id="forgot-btn">Forgotten your password?</button>
+          <button type="button" class="linkbtn" data-show="request-form">Request access</button></div>
+      </form>
 
-    <form id="signin-form" class="panel" hidden>
-      <h2>IT staff sign-in</h2>
-      <div class="field"><label for="si-email">Email</label><input id="si-email" type="email" required autocomplete="username"></div>
-      <div class="field"><label for="si-pass">Password</label><input id="si-pass" type="password" required autocomplete="current-password"></div>
-      <div class="flash error" id="si-err" hidden></div>
-      <button class="btn primary block">Sign in</button>
-      <div class="auth-links"><button type="button" class="linkbtn small" id="forgot-btn">Forgotten password?</button>
-        <button type="button" class="linkbtn small" data-show="request-form">Request access</button></div>
-    </form>
+      <form id="request-form" hidden>
+        <h2>Request access</h2>
+        <p class="sub">An admin approves new accounts before they can see tickets.</p>
+        <div class="field"><label>Full name</label><input name="name" required autocomplete="name"></div>
+        <div class="field"><label>Work email</label><input name="email" type="email" required autocomplete="username"></div>
+        <div class="field"><label>Password</label><input name="password" type="password" minlength="8" required autocomplete="new-password">
+          <div class="hint">At least 8 characters.</div></div>
+        <div class="flash error" hidden></div>
+        <button class="btn primary block lg">Request access</button>
+        <div class="auth-links"><button type="button" class="linkbtn" data-show="signin-form">Back to sign in</button></div>
+      </form>
 
-    <form id="request-form" class="panel" hidden>
-      <h2>Request access</h2>
-      <p class="muted small">An admin will need to approve your account before you can see tickets.</p>
-      <div class="field"><label>Full name</label><input name="name" required></div>
-      <div class="field"><label>Work email</label><input name="email" type="email" required autocomplete="username"></div>
-      <div class="field"><label>Password (8+ characters)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
-      <div class="flash error" hidden></div>
-      <button class="btn primary block">Request access</button>
-      <div class="auth-links"><button type="button" class="linkbtn small" data-show="signin-form">Back to sign-in</button></div>
-    </form>
+      <form id="setup-form" hidden>
+        <h2>Set up the helpdesk</h2>
+        <p class="sub">Create the first admin account. This screen only appears once.</p>
+        <div class="field"><label>Full name</label><input name="name" required autocomplete="name"></div>
+        <div class="field"><label>Work email</label><input name="email" type="email" required autocomplete="username"></div>
+        <div class="field"><label>Password</label><input name="password" type="password" minlength="8" required autocomplete="new-password">
+          <div class="hint">At least 8 characters.</div></div>
+        <div class="flash error" hidden></div>
+        <button class="btn primary block lg">Create admin account</button>
+        <div class="auth-links"><button type="button" class="linkbtn" data-show="signin-form">I already have an account</button></div>
+      </form>
 
-    <form id="setup-form" class="panel" hidden>
-      <h2>Set up the helpdesk</h2>
-      <p class="muted small">No admin exists yet. Create the first admin account. This screen only appears once.</p>
-      <div class="field"><label>Full name</label><input name="name" required></div>
-      <div class="field"><label>Work email</label><input name="email" type="email" required autocomplete="username"></div>
-      <div class="field"><label>Password (8+ characters)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
-      <div class="flash error" hidden></div>
-      <button class="btn primary block">Create admin account</button>
-      <div class="auth-links"><button type="button" class="linkbtn small" data-show="signin-form">I already have an account</button></div>
-    </form>
-
-    <div id="pending-view" class="panel" hidden>
-      <h2>Waiting for approval</h2>
-      <p>Your account <strong id="pending-email"></strong> has been created. An admin needs to approve it before you can see tickets.</p>
-      <p class="muted small">This page will update by itself once you're approved.</p>
-      <button class="btn" id="pending-signout">Sign out</button>
+      <div id="pending-view" hidden>
+        <h2>Waiting for approval</h2>
+        <p class="sub">Your account <strong id="pending-email"></strong> has been created. An admin needs to approve it before you can see tickets.</p>
+        <p class="muted small">This page updates as soon as you're approved.</p>
+        <button class="btn" id="pending-signout">Sign out</button>
+      </div>
     </div>
-
-    <p class="muted small center"><a href="index.html">Raise a ticket instead</a></p>
-  </div>
+  </main>
 </div>
 
 <!-- ======================= Signed-in app ======================= -->
-<div id="app-view" hidden>
-  <header class="topbar">
-    <a class="brand" href="#/"><span class="logo">IT</span><span class="team-name">IT Helpdesk</span></a>
-    <a class="nav" data-route="" href="#/">Dashboard</a>
-    <a class="nav" data-route="tickets" href="#/tickets">Tickets</a>
-    <a class="nav" data-route="reports" href="#/reports">Reports</a>
-    <a class="nav admin-only" data-route="team" href="#/team">Team <span class="count" id="pending-count" hidden></span></a>
-    <a class="nav admin-only" data-route="settings" href="#/settings">Settings</a>
-    <span class="spacer"></span>
-    <form class="search" id="top-search"><input type="search" placeholder="Search or INC number…" aria-label="Search tickets"></form>
-    <button class="btn primary sm" id="new-ticket-btn" style="margin-left:10px">+ New ticket</button>
-    <a class="who nav" href="#/account" id="me-name"></a>
-    <button class="linkbtn small" id="signout-btn">Sign out</button>
-  </header>
-  <main id="view"></main>
+<div id="app-view" class="shell" hidden>
+  <aside class="sidebar">
+    <a class="brand" href="#/"><span class="mark">IT</span><span class="team-name">IT Helpdesk</span></a>
+    <nav class="side-nav">
+      <a class="side-link" data-route="" href="#/"><svg class="icon"><use href="#i-home"/></svg>Overview</a>
+      <a class="side-link" data-route="tickets" href="#/tickets"><svg class="icon"><use href="#i-inbox"/></svg>Tickets<span class="count" id="open-count" hidden></span></a>
+      <a class="side-link" data-route="reports" href="#/reports"><svg class="icon"><use href="#i-chart"/></svg>Reports</a>
+      <div class="side-label admin-only">Admin</div>
+      <a class="side-link admin-only" data-route="team" href="#/team"><svg class="icon"><use href="#i-users"/></svg>Team<span class="count" id="pending-count" hidden></span></a>
+      <a class="side-link admin-only" data-route="settings" href="#/settings"><svg class="icon"><use href="#i-cog"/></svg>Settings</a>
+    </nav>
+    <div class="side-foot">
+      <span class="avatar" id="me-initials"></span>
+      <div class="who"><a href="#/account" id="me-name"></a><span id="me-role"></span></div>
+      <button class="icon-btn" id="signout-btn" title="Sign out" aria-label="Sign out"><svg class="icon"><use href="#i-out"/></svg></button>
+    </div>
+  </aside>
+  <div class="workspace">
+    <header class="appbar">
+      <form class="search" id="top-search" role="search"><svg class="icon"><use href="#i-search"/></svg>
+        <input type="search" placeholder="Search tickets, people or INC numbers" aria-label="Search tickets"></form>
+      <span class="spacer"></span>
+      <button class="btn primary" id="new-ticket-btn"><svg class="icon"><use href="#i-plus"/></svg>New ticket</button>
+    </header>
+    <main id="view"></main>
+  </div>
 </div>
 
 <!-- New ticket dialog -->
 <dialog id="new-dialog" class="modal">
   <form id="new-form" method="dialog">
-    <div class="modal-head"><h2>New ticket</h2><button type="button" class="linkbtn" data-close>✕</button></div>
+    <div class="modal-head"><h2>Log a new ticket</h2><button type="button" class="icon-btn" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
     <div class="modal-body">
-      <div class="field"><label>Title *</label><input name="title" required maxlength="150"></div>
-      <div class="field"><label>Description</label><textarea name="description" rows="5" maxlength="5000"></textarea></div>
+      <div class="field"><label>Summary <span class="req">*</span></label><input name="title" required maxlength="150"></div>
+      <div class="field"><label>Details</label><textarea name="description" rows="5" maxlength="5000"></textarea></div>
       <div class="row">
         <div class="field"><label>Requester name</label><input name="requesterName"></div>
         <div class="field"><label>Requester email</label><input name="requesterEmail" type="email"></div>
@@ -95,7 +126,7 @@
         <div class="field"><label>Assign to</label><select name="assigneeId" id="nf-assignee"></select></div>
       </div>
       <div class="field"><label>Attachments</label><input type="file" name="files" multiple></div>
-      <label class="check"><input type="checkbox" name="emailRequester"> Email the requester a confirmation with a tracking link</label>
+      <div class="field"><label class="check"><input type="checkbox" name="emailRequester"> Email the requester a confirmation with a tracking link</label></div>
       <div class="flash error" hidden></div>
     </div>
     <div class="modal-foot"><span class="muted small" id="nf-progress"></span>
@@ -215,6 +246,8 @@ async function loadSettingsDoc() {
   catch { return mergeSettings(null); }
 }
 const pageBase = () => location.href.split("#")[0];
+const greeting = () => { const h = Number(new Date().toLocaleString("en-GB", { hour: "numeric", hour12: false, timeZone: "Europe/London" }));
+  return h < 12 ? "morning" : h < 18 ? "afternoon" : "evening"; };
 
 let meUnsub = null;
 onAuthStateChanged(auth, async (user) => {
@@ -275,6 +308,9 @@ function startApp() {
   state.unsub.push(onSnapshot(query(collection(db, COL.tickets), orderBy("createdAt", "desc")), (snap) => {
     state.tickets = snap.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }));
     state.ticketsLoaded = true;
+    const open = state.tickets.filter((t) => ACTIVE.includes(t.status)).length;
+    $("#open-count").textContent = open;
+    $("#open-count").hidden = !open;
     rerender("tickets");
   }, (err) => { console.error(err); toast("Couldn't load tickets: " + err.message, "error"); }));
   route();
@@ -282,6 +318,8 @@ function startApp() {
 
 function applyMe() {
   $("#me-name").textContent = state.me.name;
+  $("#me-initials").textContent = initials(state.me.name);
+  $("#me-role").textContent = state.me.role === "admin" ? "Admin" : "IT agent";
   document.body.classList.toggle("is-admin", state.me.role === "admin");
 }
 
@@ -300,7 +338,7 @@ function route() {
   if ($("#app-view").hidden) return;
   const r = currentRoute();
   if (r.name !== "ticket") stopDetail();
-  $$(".topbar a.nav[data-route]").forEach((a) => a.classList.toggle("on", a.dataset.route === (r.name === "ticket" ? "tickets" : r.name)));
+  $$(".side-link[data-route]").forEach((a) => a.classList.toggle("on", a.dataset.route === (r.name === "ticket" ? "tickets" : r.name)));
   const views = { "": viewDashboard, tickets: viewTickets, ticket: viewTicket, reports: viewReports,
                   team: viewTeam, settings: viewSettings, account: viewAccount };
   if ((r.name === "team" || r.name === "settings") && state.me.role !== "admin") { location.hash = "#/"; return; }
@@ -442,9 +480,9 @@ function viewDashboard() {
   const go = (f) => `href="#/tickets" data-filter='${JSON.stringify(f)}'`;
 
   $("#view").innerHTML = `
-    <div class="pagehead"><div><h1>Hello, ${esc(state.me.name.split(" ")[0])}</h1>
-      <div class="muted">Here's where the queue stands. This page updates live.</div></div></div>
-    <div class="stats">
+    <div class="pagehead"><div><h1>Good ${greeting()}, ${esc(state.me.name.split(" ")[0])}</h1>
+      <div class="sub">${active.length ? `${active.length} open ticket${active.length === 1 ? "" : "s"} in the queue.` : "The queue is clear."} Updates appear here automatically.</div></div></div>
+    <div class="stat-strip">
       <a class="stat" ${go({ view: "active" })}><div class="n">${active.length}</div><div class="l">Open tickets</div></a>
       <a class="stat" ${go({ view: "mine" })}><div class="n">${mine.length}</div><div class="l">Assigned to me</div></a>
       <a class="stat" ${go({ view: "unassigned" })}><div class="n">${unassigned.length}</div><div class="l">Unassigned</div></a>
@@ -452,10 +490,10 @@ function viewDashboard() {
       <a class="stat" ${go({ view: "done", sort: "updated" })}><div class="n">${resolvedToday}</div><div class="l">Resolved today</div></a>
     </div>
     <div class="grid" style="gap:16px">
-      ${replies.length ? `<section class="panel flush attn-panel"><h2>Replies waiting from requesters</h2>${ticketTable(replies)}</section>` : ""}
-      <section class="panel flush"><h2>My open tickets</h2>${ticketTable(mine, { assignee: false, empty: "Nothing assigned to you." })}</section>
-      <section class="panel flush"><h2>Unassigned</h2>${ticketTable(unassigned, { assignee: false, take: true, empty: "Every ticket has an owner." })}</section>
-      ${hot.length ? `<section class="panel flush"><h2>Breached or at risk</h2>${ticketTable(hot.slice(0, 15))}</section>` : ""}
+      ${replies.length ? `<section class="panel flush attn-panel"><h2>Requesters waiting for a reply<span class="count-pill">${replies.length}</span></h2>${ticketTable(replies)}</section>` : ""}
+      <section class="panel flush"><h2>Assigned to me<span class="count-pill">${mine.length}</span></h2>${ticketTable(mine, { assignee: false, empty: "Nothing is assigned to you right now." })}</section>
+      <section class="panel flush"><h2>Waiting to be picked up<span class="count-pill">${unassigned.length}</span></h2>${ticketTable(unassigned, { assignee: false, take: true, empty: "Every open ticket has an owner." })}</section>
+      ${hot.length ? `<section class="panel flush"><h2>Past or close to SLA<span class="count-pill">${hot.length}</span></h2>${ticketTable(hot.slice(0, 15))}</section>` : ""}
     </div>`;
   $$("[data-filter]").forEach((a) => a.addEventListener("click", () => {
     state.filters = { ...state.filters, q: "", status: "", priority: "", category: "", assignee: "", sort: "due", ...JSON.parse(a.dataset.filter) };
@@ -472,13 +510,12 @@ function viewTickets() {
   const f = state.filters;
   const opt = (v, label, cur) => `<option value="${esc(v)}" ${cur === v ? "selected" : ""}>${esc(label)}</option>`;
   $("#view").innerHTML = `
-    <div class="pagehead"><h1>Tickets</h1>
-      <div style="display:flex;gap:8px"><button class="btn" id="export-btn">Export CSV</button>
-      <button class="btn primary" data-new>+ New ticket</button></div></div>
+    <div class="pagehead"><div><h1>Tickets</h1><div class="sub">Every ticket raised through the web form or logged by IT.</div></div>
+      <button class="btn" id="export-btn"><svg class="icon"><use href="#i-download"/></svg>Export CSV</button></div>
     <section class="panel flush">
       <nav class="tabs">${TABS.map(([k, l]) => `<a href="#/tickets" data-tab="${k}" class="${f.view === k ? "on" : ""}">${l}</a>`).join("")}</nav>
       <form class="filters" id="filters">
-        <input type="search" name="q" value="${esc(f.q)}" placeholder="Search title, requester, INC…">
+        <input type="search" name="q" value="${esc(f.q)}" placeholder="Filter by text or INC number">
         <select name="status">${opt("", "Any status", f.status)}${STATUSES.map((s) => opt(s, s, f.status)).join("")}</select>
         <select name="priority">${opt("", "Any priority", f.priority)}${PRIORITIES.map((p) => opt(p, `${p} ${PRIORITY_LABELS[p]}`, f.priority)).join("")}</select>
         <select name="category">${opt("", "Any category", f.category)}${state.settings.categories.map((c) => opt(c, c, f.category)).join("")}</select>
@@ -617,38 +654,38 @@ function renderTicketDetail() {
   view.innerHTML = `
   <div class="pagehead">
     <div>
-      <div class="muted small"><a href="#/tickets">Tickets</a> / ${esc(t.ref)}</div>
+      <div class="crumbs"><a href="#/tickets">Tickets</a> / <span class="ref">${esc(t.ref)}</span></div>
       <h1>${esc(t.title)}</h1>
       <div class="badges">${statusBadge(t.status)} ${priBadge(t.priority)} ${slaBadge(t)} ${attnBadge(t)}
-        <span class="muted small">Opened ${esc(ago(t.createdAt))} ${t.source === "portal" ? "via the web form" : "by IT"}</span></div>
+        <span class="muted small">Opened ${esc(ago(t.createdAt))}, ${t.source === "portal" ? "from the web form" : "logged by IT"}</span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${t.needsAttention ? `<button class="btn" id="seen-btn">Mark reply as seen</button>` : ""}
       ${t.assigneeId !== state.me.id ? `<button class="btn" data-take="${esc(t.id)}">Assign to me</button>` : ""}
-      ${isActive(t) ? `<button class="btn primary" id="resolve-btn">Resolve</button>` : ""}
+      ${isActive(t) ? `<button class="btn primary" id="resolve-btn">Mark resolved</button>` : ""}
     </div>
   </div>
   <div class="grid side">
     <div class="grid" style="gap:16px">
       <section class="panel">
-        <h2>Description</h2>
-        ${t.description ? `<p class="ticket-desc">${esc(t.description)}</p>` : `<p class="muted">No description.</p>`}
+        <h2>Request from ${esc(t.requesterName || "the requester")}</h2>
+        ${t.description ? `<p class="ticket-desc">${esc(t.description)}</p>` : `<p class="muted">No details were given.</p>`}
         <div class="files-row">
-          <ul class="files">${(t.attachments || []).map((a, i) => `<li><a href="#" data-file="${i}">📎 ${esc(a.name)} <span class="muted">${esc(fmtSize(a.size))}</span></a></li>`).join("")}</ul>
-          <label class="btn sm"><input type="file" id="add-files" multiple hidden> + Add files</label>
+          <ul class="files">${(t.attachments || []).map((a, i) => `<li><a href="#" data-file="${i}"><svg class="icon"><use href="#i-clip"/></svg>${esc(a.name)} <span class="muted">${esc(fmtSize(a.size))}</span></a></li>`).join("")}</ul>
+          <label class="btn sm"><input type="file" id="add-files" multiple hidden><svg class="icon"><use href="#i-plus"/></svg>Add files</label>
         </div>
       </section>
 
       <section class="panel">
         <h2>Activity</h2>
         <ul class="timeline">${timeline.length ? timeline.map((i) => i._type === "event"
-          ? `<li class="event">• ${esc(i.authorName || "System")} — ${esc(i.body)} <span title="${esc(fmtDate(i.createdAt))}">· ${esc(ago(i.createdAt))}</span></li>`
+          ? `<li class="event"><span>${esc(i.body)} <span class="muted">by ${esc(i.authorName || "System")}, <span title="${esc(fmtDate(i.createdAt))}">${esc(ago(i.createdAt))}</span></span></span></li>`
           : `<li class="comment ${i._type}">
               <div class="comment-head"><span class="avatar">${esc(initials(i.authorName))}</span>
                 <strong>${esc(i.authorName || "Unknown")}</strong>
-                <span class="badge">${{ public: "Reply to requester", requester: "From requester", internal: "Internal note" }[i._type]}</span>
-                <span class="muted small" title="${esc(fmtDate(i.createdAt))}">${esc(ago(i.createdAt))}</span></div>
-              <div class="comment-body">${esc(i.body)}</div></li>`).join("") : `<li class="muted">No activity yet.</li>`}</ul>
+                <span class="badge">${{ public: "Sent to requester", requester: "Requester", internal: "Internal note" }[i._type]}</span>
+                <span class="when" title="${esc(fmtDate(i.createdAt))}">${esc(ago(i.createdAt))}</span></div>
+              <div class="comment-body">${esc(i.body)}</div></li>`).join("") : `<li class="muted">No messages or changes yet.</li>`}</ul>
       </section>
 
       <section class="panel">
@@ -657,7 +694,7 @@ function renderTicketDetail() {
           <button type="button" data-mode="internal" class="${activeTab === "internal" || !t.requesterEmail ? "on" : ""}">Internal note</button>
         </nav>
         <form id="update-form">
-          <div class="field"><textarea id="update-body" placeholder="Write your message…"></textarea></div>
+          <div class="field"><textarea id="update-body" placeholder="Write a message"></textarea></div>
           <div class="update-foot">
             <span class="muted small" id="update-hint"></span>
             ${isActive(t) ? `<label class="check"><input type="checkbox" id="update-resolve"> and resolve</label>` : ""}
@@ -692,12 +729,12 @@ function renderTicketDetail() {
           ${t.resolvedAt ? `<dt>Resolved</dt><dd>${esc(fmtDate(t.resolvedAt))}</dd>` : ""}
           <dt>Created</dt><dd>${esc(fmtDate(t.createdAt))}</dd>
         </dl>
-        <p class="muted small">UK time. SLA clocks run 24/7 from when the ticket was opened.</p>
+        <p class="muted small" style="margin:14px 0 0">UK time. SLA clocks run 24/7 from when the ticket was opened.</p>
       </section>
 
       <section class="panel">
-        <h2>Requester's link</h2>
-        <p class="muted small">The requester uses this to check progress and reply.</p>
+        <h2>Tracking link</h2>
+        <p class="muted small">The requester uses this page to check progress and reply.</p>
         <div style="display:flex;gap:6px"><input readonly value="${esc(trackLink(t.id))}" id="track-url" data-keep><button class="btn sm" id="copy-link">Copy</button></div>
       </section>
 
@@ -936,9 +973,9 @@ function viewReports() {
       <span class="num">${n}</span></div>`).join("")}</div>`; };
 
   $("#view").innerHTML = `
-    <div class="pagehead"><div><h1>Reports</h1><div class="muted">Last ${days} days, plus the queue as it stands now.</div></div>
+    <div class="pagehead"><div><h1>Reports</h1><div class="sub">Figures for the last ${days} days, plus the queue as it stands now.</div></div>
       <select id="days" style="width:auto">${[7, 30, 90, 365].map((d) => `<option value="${d}" ${d === days ? "selected" : ""}>Last ${d} days</option>`).join("")}</select></div>
-    <div class="stats">
+    <div class="stat-strip">
       <div class="stat"><div class="n">${created.length}</div><div class="l">Created</div></div>
       <div class="stat"><div class="n">${resolved.length}</div><div class="l">Resolved</div></div>
       <div class="stat"><div class="n">${pct(met, resolved.length)}</div><div class="l">Resolved within SLA</div></div>
@@ -981,7 +1018,7 @@ function viewTeam() {
       : `<button class="btn sm" data-staff="${s.id}" data-act="${s.active ? "disable" : "enable"}">${s.active ? "Disable" : "Enable"}</button>
          <button class="btn sm" data-staff="${s.id}" data-act="role">${s.role === "admin" ? "Make agent" : "Make admin"}</button>`}</td></tr>`;
   $("#view").innerHTML = `
-    <div class="pagehead"><div><h1>Team</h1><div class="muted">People who can sign in to the IT dashboard.</div></div></div>
+    <div class="pagehead"><div><h1>Team</h1><div class="sub">People who can sign in to the IT dashboard.</div></div></div>
     ${pending.length ? `<section class="panel flush attn-panel" style="margin-bottom:16px"><h2>Waiting for approval</h2><div class="table-wrap"><table>
       <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>${pending.map(row).join("")}</tbody></table></div></section>` : ""}
     <section class="panel flush"><h2>IT team</h2><div class="table-wrap"><table>
@@ -1011,7 +1048,7 @@ function viewTeam() {
 function viewSettings() {
   const s = state.settings;
   $("#view").innerHTML = `
-    <div class="pagehead"><div><h1>Settings</h1></div></div>
+    <div class="pagehead"><div><h1>Settings</h1><div class="sub">How the helpdesk behaves for everyone.</div></div></div>
     <div class="grid two">
       <form class="panel" id="general-form">
         <h2>General</h2>
@@ -1070,7 +1107,7 @@ function viewSettings() {
 function viewAccount() {
   const me = state.me;
   $("#view").innerHTML = `
-    <div class="pagehead"><h1>My account</h1></div>
+    <div class="pagehead"><div><h1>My account</h1><div class="sub">Your name and email preferences.</div></div></div>
     <form class="panel" id="acct-form" style="max-width:520px">
       <div class="field"><label>Email</label><input value="${esc(me.email)}" disabled></div>
       <div class="field"><label>Name</label><input name="name" value="${esc(me.name)}" required></div>
