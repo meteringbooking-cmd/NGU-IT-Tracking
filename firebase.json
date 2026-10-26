@@ -1,0 +1,8 @@
+{
+  "hosting": {
+    "site": "nextgen-it-helpdesk",
+    "public": ".",
+    "ignore": ["firebase.json", "*.rules", "*.bat", "README.md", "**/.*"],
+    "headers": [{ "source": "**/*.@(js|css)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+  }
+}

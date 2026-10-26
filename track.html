@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Track your IT ticket</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="public">
+<header class="topbar">
+  <a class="brand" href="index.html"><span class="logo">IT</span><span id="team-name">IT Helpdesk</span></a>
+  <span class="spacer"></span>
+  <a class="nav" href="index.html">Raise a ticket</a>
+</header>
+
+<main class="narrow">
+  <div id="loading" class="empty">Loading your ticket…</div>
+  <div id="missing" class="panel" hidden>
+    <h1>Ticket not found</h1>
+    <p class="muted">The link may be incomplete. Use the link from your confirmation email, or <a href="index.html">raise a new ticket</a>.</p>
+  </div>
+
+  <section id="ticket" hidden>
+    <div class="pagehead"><div>
+      <div class="muted small" id="t-ref"></div>
+      <h1 id="t-title"></h1>
+      <div id="t-badges" class="badges"></div>
+    </div></div>
+
+    <div id="status-steps" class="steps"></div>
+
+    <section class="panel">
+      <h2>Your request</h2>
+      <p id="t-desc" class="ticket-desc"></p>
+      <dl class="meta inline-meta" id="t-meta"></dl>
+    </section>
+
+    <section class="panel" style="margin-top:16px">
+      <h2>Conversation with IT</h2>
+      <ul class="timeline" id="thread"></ul>
+      <form id="reply-form" style="margin-top:12px">
+        <div class="field"><label for="reply">Add more information or reply</label>
+          <textarea id="reply" maxlength="5000" required placeholder="Type your message to IT…"></textarea></div>
+        <button class="btn primary" id="reply-btn">Send to IT</button>
+        <span class="muted small" id="reopen-note"></span>
+      </form>
+    </section>
+  </section>
+</main>
+
+<script type="module">
+import { db, COL, loadSettings, sendEmail, esc, fmtDate, ago, initials, dashLink, toast, PRIORITY_LABELS }
+  from "./js/config.js";
+import { doc, collection, onSnapshot, query, orderBy, writeBatch, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const $ = (id) => document.getElementById(id);
+const id = new URLSearchParams(location.search).get("id");
+const settings = await loadSettings();
+$("team-name").textContent = settings.teamName;
+let ticket = null;
+
+if (!id) { $("loading").hidden = true; $("missing").hidden = false; }
+else {
+  onSnapshot(doc(db, COL.tickets, id), (snap) => {
+    $("loading").hidden = true;
+    if (!snap.exists()) { $("missing").hidden = false; $("ticket").hidden = true; return; }
+    ticket = { id: snap.id, ...snap.data({ serverTimestamps: "estimate" }) };
+    render();
+  }, (err) => { console.error(err); $("loading").hidden = true; $("missing").hidden = false; });
+
+  onSnapshot(query(collection(db, COL.tickets, id, "updates"), orderBy("createdAt")), (snap) => {
+    const items = snap.docs.map((d) => d.data({ serverTimestamps: "estimate" }));
+    $("thread").innerHTML = items.length ? items.map((u) => `
+      <li class="comment ${u.authorType === "staff" ? "public" : "requester"}">
+        <div class="comment-head"><span class="avatar">${esc(initials(u.authorName))}</span>
+          <strong>${esc(u.authorType === "staff" ? u.authorName + " (IT)" : "You")}</strong>
+          <span class="muted small" title="${esc(fmtDate(u.createdAt))}">${esc(ago(u.createdAt))}</span></div>
+        <div class="comment-body">${esc(u.body)}</div>
+      </li>`).join("") : `<li class="muted">No messages yet. IT will reply here and by email.</li>`;
+  });
+}
+
+function render() {
+  const t = ticket;
+  $("ticket").hidden = false;
+  document.title = `${t.ref} · ${settings.teamName}`;
+  $("t-ref").textContent = t.ref;
+  $("t-title").textContent = t.title;
+  $("t-badges").innerHTML = `<span class="badge st-${esc(t.status.split(" ")[0])}">${esc(t.status)}</span>
+    <span class="pri ${esc(t.priority)}">${esc(t.priority)} ${esc(PRIORITY_LABELS[t.priority] || "")}</span>`;
+  $("t-desc").textContent = t.description || "";
+  $("t-meta").innerHTML = [
+    ["Raised", fmtDate(t.createdAt)],
+    ["Category", t.category || "—"],
+    ["Being handled by", t.assigneeName || "Waiting to be picked up"],
+    ["Last update", ago(t.updatedAt)],
+  ].map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("");
+
+  const steps = ["New", "Open", "In progress", "Resolved"];
+  const idx = t.status === "Closed" ? 3 : t.status === "On hold" ? 2 : steps.indexOf(t.status);
+  $("status-steps").innerHTML = steps.map((s, i) =>
+    `<div class="step ${i < idx ? "done" : i === idx ? "on" : ""}"><span class="dot"></span>${
+      i === 2 && t.status === "On hold" ? "On hold" : i === 3 && t.status === "Closed" ? "Closed" : s}</div>`).join("");
+
+  const closed = ["Resolved", "Closed"].includes(t.status);
+  $("reopen-note").textContent = t.status === "Resolved" ? "Replying will reopen this ticket." :
+    t.status === "Closed" ? "This ticket is closed. Please raise a new one if you still need help." : "";
+  $("reply-form").hidden = t.status === "Closed";
+}
+
+$("reply-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = $("reply").value.trim();
+  if (!body || !ticket) return;
+  const btn = $("reply-btn");
+  btn.disabled = true;
+  try {
+    const batch = writeBatch(db);
+    batch.set(doc(collection(db, COL.tickets, id, "updates")), {
+      body, authorType: "requester", authorName: ticket.requesterName || "Requester", createdAt: serverTimestamp(),
+    });
+    const patch = { needsAttention: true, updatedAt: serverTimestamp() };
+    if (ticket.status === "Resolved") patch.status = "Open";
+    batch.update(doc(db, COL.tickets, id), patch);
+    await batch.commit();
+    $("reply").value = "";
+    sendEmail("it", {
+      to_email: ticket.assigneeEmail || settings.itEmail, to_name: ticket.assigneeName || settings.teamName,
+      reply_to: ticket.requesterEmail, subject: `[${ticket.ref}] ${ticket.requesterName || "Requester"} replied`,
+      message: `${ticket.requesterName || "The requester"} replied on ${ticket.ref} (${ticket.title}):\n\n${body}`,
+      ticket_ref: ticket.ref, ticket_title: ticket.title, ticket_link: dashLink(id),
+      priority: ticket.priority, status: patch.status || ticket.status,
+      requester_name: ticket.requesterName, requester_email: ticket.requesterEmail,
+    });
+  } catch (err) {
+    console.error(err);
+    toast("Sorry, your message couldn't be sent. Please try again.", "error");
+  } finally { btn.disabled = false; }
+});
+</script>
+</body>
+</html>

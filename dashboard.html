@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IT Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ======================= Signed-out screens ======================= -->
+<div id="auth-view" hidden>
+  <div class="auth">
+    <div class="brand"><span class="logo">IT</span><span class="team-name">IT Helpdesk</span></div>
+
+    <form id="signin-form" class="panel" hidden>
+      <h2>IT staff sign-in</h2>
+      <div class="field"><label for="si-email">Email</label><input id="si-email" type="email" required autocomplete="username"></div>
+      <div class="field"><label for="si-pass">Password</label><input id="si-pass" type="password" required autocomplete="current-password"></div>
+      <div class="flash error" id="si-err" hidden></div>
+      <button class="btn primary block">Sign in</button>
+      <div class="auth-links"><button type="button" class="linkbtn small" id="forgot-btn">Forgotten password?</button>
+        <button type="button" class="linkbtn small" data-show="request-form">Request access</button></div>
+    </form>
+
+    <form id="request-form" class="panel" hidden>
+      <h2>Request access</h2>
+      <p class="muted small">An admin will need to approve your account before you can see tickets.</p>
+      <div class="field"><label>Full name</label><input name="name" required></div>
+      <div class="field"><label>Work email</label><input name="email" type="email" required autocomplete="username"></div>
+      <div class="field"><label>Password (8+ characters)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
+      <div class="flash error" hidden></div>
+      <button class="btn primary block">Request access</button>
+      <div class="auth-links"><button type="button" class="linkbtn small" data-show="signin-form">Back to sign-in</button></div>
+    </form>
+
+    <form id="setup-form" class="panel" hidden>
+      <h2>Set up the helpdesk</h2>
+      <p class="muted small">No admin exists yet. Create the first admin account. This screen only appears once.</p>
+      <div class="field"><label>Full name</label><input name="name" required></div>
+      <div class="field"><label>Work email</label><input name="email" type="email" required autocomplete="username"></div>
+      <div class="field"><label>Password (8+ characters)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
+      <div class="flash error" hidden></div>
+      <button class="btn primary block">Create admin account</button>
+      <div class="auth-links"><button type="button" class="linkbtn small" data-show="signin-form">I already have an account</button></div>
+    </form>
+
+    <div id="pending-view" class="panel" hidden>
+      <h2>Waiting for approval</h2>
+      <p>Your account <strong id="pending-email"></strong> has been created. An admin needs to approve it before you can see tickets.</p>
+      <p class="muted small">This page will update by itself once you're approved.</p>
+      <button class="btn" id="pending-signout">Sign out</button>
+    </div>
+
+    <p class="muted small center"><a href="index.html">Raise a ticket instead</a></p>
+  </div>
+</div>
+
+<!-- ======================= Signed-in app ======================= -->
+<div id="app-view" hidden>
+  <header class="topbar">
+    <a class="brand" href="#/"><span class="logo">IT</span><span class="team-name">IT Helpdesk</span></a>
+    <a class="nav" data-route="" href="#/">Dashboard</a>
+    <a class="nav" data-route="tickets" href="#/tickets">Tickets</a>
+    <a class="nav" data-route="reports" href="#/reports">Reports</a>
+    <a class="nav admin-only" data-route="team" href="#/team">Team <span class="count" id="pending-count" hidden></span></a>
+    <a class="nav admin-only" data-route="settings" href="#/settings">Settings</a>
+    <span class="spacer"></span>
+    <form class="search" id="top-search"><input type="search" placeholder="Search or INC number…" aria-label="Search tickets"></form>
+    <button class="btn primary sm" id="new-ticket-btn" style="margin-left:10px">+ New ticket</button>
+    <a class="who nav" href="#/account" id="me-name"></a>
+    <button class="linkbtn small" id="signout-btn">Sign out</button>
+  </header>
+  <main id="view"></main>
+</div>
+
+<!-- New ticket dialog -->
+<dialog id="new-dialog" class="modal">
+  <form id="new-form" method="dialog">
+    <div class="modal-head"><h2>New ticket</h2><button type="button" class="linkbtn" data-close>✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Title *</label><input name="title" required maxlength="150"></div>
+      <div class="field"><label>Description</label><textarea name="description" rows="5" maxlength="5000"></textarea></div>
+      <div class="row">
+        <div class="field"><label>Requester name</label><input name="requesterName"></div>
+        <div class="field"><label>Requester email</label><input name="requesterEmail" type="email"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Department</label><input name="department"></div>
+        <div class="field"><label>Phone</label><input name="phone"></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>Priority</label><select name="priority" id="nf-priority"></select></div>
+        <div class="field"><label>Category</label><select name="category" id="nf-category"></select></div>
+        <div class="field"><label>Assign to</label><select name="assigneeId" id="nf-assignee"></select></div>
+      </div>
+      <div class="field"><label>Attachments</label><input type="file" name="files" multiple></div>
+      <label class="check"><input type="checkbox" name="emailRequester"> Email the requester a confirmation with a tracking link</label>
+      <div class="flash error" hidden></div>
+    </div>
+    <div class="modal-foot"><span class="muted small" id="nf-progress"></span>
+      <button type="button" class="btn" data-close>Cancel</button><button class="btn primary" value="create">Create ticket</button></div>
+  </form>
+</dialog>
+
+<script type="module">
+import {
+  db, auth, storage, COL, sendEmail, createTicket, uploadFiles, validateFiles, mergeSettings, DEFAULT_SETTINGS,
+  PRIORITIES, PRIORITY_LABELS, STATUSES, ACTIVE, DONE, esc, toDate, fmtDate, ago, fmtSize, initials,
+  slaDue, slaState, responseState, trackLink, dashLink, toast,
+} from "./js/config.js";
+import {
+  doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, onSnapshot, query, orderBy,
+  serverTimestamp, arrayUnion,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+  sendPasswordResetEmail, updateProfile,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { ref as sRef, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+
+const state = {
+  user: null, me: null, staff: [], tickets: [], settings: mergeSettings(null),
+  ticketsLoaded: false, unsub: [], detailUnsub: [], detail: { id: null, updates: [], notes: [] },
+  filters: { view: "active", q: "", status: "", priority: "", category: "", assignee: "", sort: "due" },
+  reportDays: 30,
+};
+
+// =====================================================================
+// Auth
+// =====================================================================
+function showAuth(which) {
+  $("#app-view").hidden = true;
+  $("#auth-view").hidden = false;
+  ["signin-form", "request-form", "setup-form", "pending-view"].forEach((id) => ($("#" + id).hidden = id !== which));
+}
+$$("[data-show]").forEach((b) => b.addEventListener("click", () => showAuth(b.dataset.show)));
+
+function authError(form, err) {
+  const box = $(".flash.error", form);
+  const code = err?.code || "";
+  box.textContent = {
+    "auth/invalid-credential": "Wrong email or password.",
+    "auth/wrong-password": "Wrong email or password.",
+    "auth/user-not-found": "Wrong email or password.",
+    "auth/email-already-in-use": "There's already an account with that email. Try signing in.",
+    "auth/weak-password": "Use a password of at least 8 characters.",
+    "auth/too-many-requests": "Too many attempts. Wait a few minutes and try again.",
+    "auth/operation-not-allowed": "Email/password sign-in isn't switched on in Firebase yet (see README).",
+    "permission-denied": "Firebase refused the request. Check the security rules (see README).",
+  }[code] || (err?.message || "Something went wrong.");
+  box.hidden = false;
+}
+
+$("#signin-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#si-err").hidden = true;
+  try { await signInWithEmailAndPassword(auth, $("#si-email").value.trim(), $("#si-pass").value); }
+  catch (err) { authError(e.target, err); }
+});
+
+$("#forgot-btn").addEventListener("click", async () => {
+  const email = $("#si-email").value.trim();
+  if (!email) { authError($("#signin-form"), { message: "Type your email above first." }); return; }
+  try { await sendPasswordResetEmail(auth, email); } catch {}
+  const box = $("#si-err");
+  box.className = "flash info";
+  box.textContent = `If ${email} has an account, a reset link is on its way.`;
+  box.hidden = false;
+});
+
+$("#request-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target));
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, f.email.trim(), f.password);
+    await updateProfile(cred.user, { displayName: f.name.trim() });
+    await setDoc(doc(db, COL.staff, cred.user.uid), {
+      name: f.name.trim(), email: f.email.trim().toLowerCase(), role: "agent", active: false, notify: true,
+      createdAt: serverTimestamp(),
+    });
+    const s = await loadSettingsDoc();
+    sendEmail("it", { to_email: s.itEmail, to_name: s.teamName, subject: `${f.name} has requested helpdesk access`,
+      message: `${f.name} (${f.email}) has asked for access to the IT dashboard.\n\nApprove them under Team: ${pageBase()}#/team` });
+  } catch (err) { authError(e.target, err); }
+});
+
+$("#setup-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target));
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, f.email.trim(), f.password);
+    await updateProfile(cred.user, { displayName: f.name.trim() });
+    const batch = writeBatch(db);
+    batch.set(doc(db, COL.staff, cred.user.uid), {
+      name: f.name.trim(), email: f.email.trim().toLowerCase(), role: "admin", active: true, notify: true,
+      createdAt: serverTimestamp(),
+    });
+    batch.set(doc(db, COL.settings, "setup"), { by: cred.user.uid, at: serverTimestamp() });
+    await batch.commit();
+    await setDoc(doc(db, COL.settings, "config"), DEFAULT_SETTINGS);
+    toast("Your admin account is ready. Next, set the IT email address under Settings.");
+    location.hash = "#/settings";
+  } catch (err) { authError(e.target, err); }
+});
+
+$("#signout-btn").addEventListener("click", () => signOut(auth));
+$("#pending-signout").addEventListener("click", () => signOut(auth));
+
+async function loadSettingsDoc() {
+  try { const s = await getDoc(doc(db, COL.settings, "config")); return mergeSettings(s.exists() ? s.data() : null); }
+  catch { return mergeSettings(null); }
+}
+const pageBase = () => location.href.split("#")[0];
+
+let meUnsub = null;
+onAuthStateChanged(auth, async (user) => {
+  stopAll();
+  if (meUnsub) { meUnsub(); meUnsub = null; }
+  state.user = user;
+  if (!user) {
+    let setupDone = true;
+    try { setupDone = (await getDoc(doc(db, COL.settings, "setup"))).exists(); } catch {}
+    showAuth(setupDone ? "signin-form" : "setup-form");
+    return;
+  }
+  meUnsub = onSnapshot(doc(db, COL.staff, user.uid), (snap) => {
+    const me = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    const wasActive = state.me?.active;
+    state.me = me;
+    if (!me || !me.active) {
+      stopAll();
+      $("#pending-email").textContent = user.email;
+      showAuth("pending-view");
+      return;
+    }
+    if (!wasActive) startApp();
+    else applyMe();
+  }, (err) => {
+    console.error(err);
+    $("#pending-email").textContent = user.email;
+    showAuth("pending-view");
+  });
+});
+
+function stopAll() {
+  state.unsub.forEach((u) => u());
+  state.unsub = [];
+  stopDetail();
+  state.ticketsLoaded = false;
+}
+
+// =====================================================================
+// App start & live data
+// =====================================================================
+function startApp() {
+  $("#auth-view").hidden = true;
+  $("#app-view").hidden = false;
+  applyMe();
+  state.unsub.push(onSnapshot(doc(db, COL.settings, "config"), (s) => {
+    state.settings = mergeSettings(s.exists() ? s.data() : null);
+    $$(".team-name").forEach((el) => (el.textContent = state.settings.teamName));
+    rerender("settings");
+  }));
+  state.unsub.push(onSnapshot(collection(db, COL.staff), (snap) => {
+    state.staff = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name));
+    const pending = state.staff.filter((s) => !s.active && !s.disabledAt).length;
+    $("#pending-count").textContent = pending;
+    $("#pending-count").hidden = !pending || state.me.role !== "admin";
+    rerender("staff");
+  }));
+  state.unsub.push(onSnapshot(query(collection(db, COL.tickets), orderBy("createdAt", "desc")), (snap) => {
+    state.tickets = snap.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }));
+    state.ticketsLoaded = true;
+    rerender("tickets");
+  }, (err) => { console.error(err); toast("Couldn't load tickets: " + err.message, "error"); }));
+  route();
+}
+
+function applyMe() {
+  $("#me-name").textContent = state.me.name;
+  document.body.classList.toggle("is-admin", state.me.role === "admin");
+}
+
+const agents = () => state.staff.filter((s) => s.active);
+const staffById = (id) => state.staff.find((s) => s.id === id);
+
+// =====================================================================
+// Routing
+// =====================================================================
+window.addEventListener("hashchange", route);
+function currentRoute() {
+  const parts = location.hash.replace(/^#\/?/, "").split("/");
+  return { name: parts[0] || "", arg: decodeURIComponent(parts[1] || "") };
+}
+function route() {
+  if ($("#app-view").hidden) return;
+  const r = currentRoute();
+  if (r.name !== "ticket") stopDetail();
+  $$(".topbar a.nav[data-route]").forEach((a) => a.classList.toggle("on", a.dataset.route === (r.name === "ticket" ? "tickets" : r.name)));
+  const views = { "": viewDashboard, tickets: viewTickets, ticket: viewTicket, reports: viewReports,
+                  team: viewTeam, settings: viewSettings, account: viewAccount };
+  if ((r.name === "team" || r.name === "settings") && state.me.role !== "admin") { location.hash = "#/"; return; }
+  (views[r.name] || viewDashboard)(r.arg);
+  window.scrollTo(0, 0);
+}
+// Called when live data changes: refresh what's on screen without losing what the user is typing
+function rerender(what) {
+  if ($("#app-view").hidden) return;
+  const r = currentRoute();
+  if (r.name === "tickets") updateTicketRows();
+  else if (r.name === "ticket") renderTicketDetail();
+  else if (r.name === "") viewDashboard();
+  else if (r.name === "reports") viewReports();
+  else if (r.name === "team" && what !== "tickets") viewTeam();
+  else if (r.name === "settings" && what === "settings" && !$("#view form.dirty")) viewSettings();
+}
+
+$("#top-search").addEventListener("submit", (e) => {
+  e.preventDefault();
+  state.filters = { ...state.filters, view: "all", q: $("input", e.target).value.trim() };
+  $("input", e.target).value = "";
+  if (location.hash === "#/tickets") viewTickets(); else location.hash = "#/tickets";
+});
+
+// =====================================================================
+// Shared bits
+// =====================================================================
+const statusBadge = (s) => `<span class="badge st-${esc(s.split(" ")[0])}">${esc(s)}</span>`;
+const priBadge = (p) => `<span class="pri ${esc(p)}">${esc(p)} ${esc(PRIORITY_LABELS[p] || "")}</span>`;
+function slaBadge(t) {
+  const [s, label] = slaState(t, state.settings);
+  const due = slaDue(t, state.settings).resolve;
+  const when = ["ok", "risk", "breached"].includes(s) ? ` · ${ago(due)}` : "";
+  return `<span class="badge sla-${s}" title="Resolve by ${esc(fmtDate(due))}">${label}${when}</span>`;
+}
+const attnBadge = (t) => (t.needsAttention ? `<span class="badge attn" title="The requester has replied">Reply waiting</span>` : "");
+
+function ticketTable(rows, { assignee = true, take = false, empty = "Nothing here." } = {}) {
+  if (!state.ticketsLoaded) return `<div class="empty">Loading…</div>`;
+  if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
+  return `<div class="table-wrap"><table><thead><tr>
+    <th>Ref</th><th>Title</th><th>Priority</th><th>Status</th>${assignee ? "<th>Assignee</th>" : ""}
+    <th>Requester</th><th>SLA</th><th>Updated</th>${take ? "<th></th>" : ""}</tr></thead><tbody>
+    ${rows.map((t) => `<tr class="${t.needsAttention ? "attn-row" : ""}">
+      <td class="ref"><a href="#/ticket/${esc(t.id)}">${esc(t.ref)}</a></td>
+      <td class="title"><a href="#/ticket/${esc(t.id)}">${esc(t.title)}</a> ${attnBadge(t)}
+        ${t.category ? `<div class="muted small">${esc(t.category)}</div>` : ""}</td>
+      <td>${priBadge(t.priority)}</td><td>${statusBadge(t.status)}</td>
+      ${assignee ? `<td>${esc(t.assigneeName || "—")}</td>` : ""}
+      <td>${esc(t.requesterName || "—")}${t.department ? `<div class="muted small">${esc(t.department)}</div>` : ""}</td>
+      <td>${slaBadge(t)}</td><td class="muted small">${esc(ago(t.updatedAt))}</td>
+      ${take ? `<td><button class="btn sm" data-take="${esc(t.id)}">Take</button></td>` : ""}
+    </tr>`).join("")}</tbody></table></div>`;
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-take]");
+  if (!b) return;
+  b.disabled = true;
+  const t = state.tickets.find((x) => x.id === b.dataset.take);
+  if (t) await changeTicket(t, { assigneeId: state.me.id });
+});
+
+const isActive = (t) => ACTIVE.includes(t.status);
+const byDue = (a, b) => slaDue(a, state.settings).resolve - slaDue(b, state.settings).resolve;
+
+// =====================================================================
+// Ticket changes (with audit trail and emails)
+// =====================================================================
+async function changeTicket(t, patch, { emailRequesterOnResolve = false } = {}) {
+  const events = [];
+  const upd = {};
+  const now = serverTimestamp();
+  for (const [k, label] of [["title", "Title"], ["requesterName", "Requester"], ["requesterEmail", "Requester email"],
+                            ["department", "Department"], ["phone", "Phone"], ["category", "Category"]]) {
+    if (k in patch && (patch[k] || "") !== (t[k] || "")) { upd[k] = patch[k]; events.push(`${label}: ${t[k] || "—"} → ${patch[k] || "—"}`); }
+  }
+  if (patch.priority && patch.priority !== t.priority) { upd.priority = patch.priority; events.push(`Priority: ${t.priority} → ${patch.priority}`); }
+  let newAssignee = null;
+  if ("assigneeId" in patch && (patch.assigneeId || null) !== (t.assigneeId || null)) {
+    newAssignee = patch.assigneeId ? staffById(patch.assigneeId) : null;
+    upd.assigneeId = newAssignee?.id || null;
+    upd.assigneeName = newAssignee?.name || null;
+    upd.assigneeEmail = newAssignee?.email || null;
+    events.push(`Assignee: ${t.assigneeName || "Unassigned"} → ${newAssignee?.name || "Unassigned"}`);
+    if (newAssignee && t.status === "New" && (!patch.status || patch.status === "New")) patch.status = "Open";
+  }
+  if (patch.status && patch.status !== t.status) {
+    upd.status = patch.status;
+    events.push(`Status: ${t.status} → ${patch.status}`);
+    if (DONE.includes(patch.status) && !t.resolvedAt) upd.resolvedAt = now;
+    if (ACTIVE.includes(patch.status)) upd.resolvedAt = null;
+  }
+  if (!events.length) { toast("Nothing changed.", "info"); return false; }
+  if (!t.firstResponseAt && (upd.status && upd.status !== "New" || upd.assigneeId)) upd.firstResponseAt = now;
+  upd.updatedAt = now;
+
+  const batch = writeBatch(db);
+  batch.update(doc(db, COL.tickets, t.id), upd);
+  events.forEach((text) => batch.set(doc(collection(db, COL.tickets, t.id, "notes")),
+    { kind: "event", body: text, authorId: state.me.id, authorName: state.me.name, createdAt: now }));
+  try { await batch.commit(); }
+  catch (err) { console.error(err); toast("Couldn't save: " + err.message, "error"); return false; }
+
+  const merged = { ...t, ...upd };
+  if (newAssignee && newAssignee.id !== state.me.id && newAssignee.notify !== false) {
+    sendEmail("it", { ...emailBase(merged), to_email: newAssignee.email, to_name: newAssignee.name,
+      subject: `[${t.ref}] Assigned to you: ${t.title}`,
+      message: `${state.me.name} assigned ${t.ref} to you.\n\n${t.title}\nPriority: ${merged.priority} ${PRIORITY_LABELS[merged.priority]}\n` +
+        `Requester: ${t.requesterName || "—"}\n\n${t.description || ""}`, ticket_link: dashLink(t.id) });
+  }
+  if (upd.status === "Resolved" && emailRequesterOnResolve && t.requesterEmail) {
+    sendEmail("external", { ...emailBase(merged), to_email: t.requesterEmail, to_name: t.requesterName,
+      subject: `Resolved: ${t.ref} ${t.title}`,
+      message: `Hello ${t.requesterName || ""},\n\nWe've marked your request ${t.ref} as resolved.\n\n` +
+        `If it isn't fixed, reply using the link below and it will reopen:\n${trackLink(t.id)}`, ticket_link: trackLink(t.id) });
+  }
+  toast(events.length === 1 ? events[0] : "Ticket updated.");
+  return true;
+}
+
+const emailBase = (t) => ({ ticket_ref: t.ref, ticket_title: t.title, priority: `${t.priority} ${PRIORITY_LABELS[t.priority] || ""}`,
+  status: t.status, requester_name: t.requesterName || "", requester_email: t.requesterEmail || "",
+  reply_to: state.me?.email || "", from_name: state.settings.teamName });
+
+// =====================================================================
+// Dashboard
+// =====================================================================
+function viewDashboard() {
+  const now = Date.now();
+  const active = state.tickets.filter(isActive);
+  const mine = active.filter((t) => t.assigneeId === state.me.id).sort(byDue);
+  const unassigned = active.filter((t) => !t.assigneeId).sort((a, b) => toDate(a.createdAt) - toDate(b.createdAt));
+  const replies = active.filter((t) => t.needsAttention && (t.assigneeId === state.me.id || !t.assigneeId));
+  const hot = active.filter((t) => ["breached", "risk"].includes(slaState(t, state.settings, now)[0])).sort(byDue);
+  const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+  const resolvedToday = state.tickets.filter((t) => t.resolvedAt && toDate(t.resolvedAt) >= startOfDay).length;
+  const breached = hot.filter((t) => slaState(t, state.settings, now)[0] === "breached").length;
+  const go = (f) => `href="#/tickets" data-filter='${JSON.stringify(f)}'`;
+
+  $("#view").innerHTML = `
+    <div class="pagehead"><div><h1>Hello, ${esc(state.me.name.split(" ")[0])}</h1>
+      <div class="muted">Here's where the queue stands. This page updates live.</div></div></div>
+    <div class="stats">
+      <a class="stat" ${go({ view: "active" })}><div class="n">${active.length}</div><div class="l">Open tickets</div></a>
+      <a class="stat" ${go({ view: "mine" })}><div class="n">${mine.length}</div><div class="l">Assigned to me</div></a>
+      <a class="stat" ${go({ view: "unassigned" })}><div class="n">${unassigned.length}</div><div class="l">Unassigned</div></a>
+      <a class="stat ${breached ? "bad" : ""}" ${go({ view: "breached" })}><div class="n">${breached}</div><div class="l">SLA breached</div></a>
+      <a class="stat" ${go({ view: "done", sort: "updated" })}><div class="n">${resolvedToday}</div><div class="l">Resolved today</div></a>
+    </div>
+    <div class="grid" style="gap:16px">
+      ${replies.length ? `<section class="panel flush attn-panel"><h2>Replies waiting from requesters</h2>${ticketTable(replies)}</section>` : ""}
+      <section class="panel flush"><h2>My open tickets</h2>${ticketTable(mine, { assignee: false, empty: "Nothing assigned to you." })}</section>
+      <section class="panel flush"><h2>Unassigned</h2>${ticketTable(unassigned, { assignee: false, take: true, empty: "Every ticket has an owner." })}</section>
+      ${hot.length ? `<section class="panel flush"><h2>Breached or at risk</h2>${ticketTable(hot.slice(0, 15))}</section>` : ""}
+    </div>`;
+  $$("[data-filter]").forEach((a) => a.addEventListener("click", () => {
+    state.filters = { ...state.filters, q: "", status: "", priority: "", category: "", assignee: "", sort: "due", ...JSON.parse(a.dataset.filter) };
+  }));
+}
+
+// =====================================================================
+// Ticket list
+// =====================================================================
+const TABS = [["active", "All open"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["replies", "Replies waiting"],
+              ["breached", "SLA breached"], ["done", "Resolved & closed"], ["all", "Everything"]];
+
+function viewTickets() {
+  const f = state.filters;
+  const opt = (v, label, cur) => `<option value="${esc(v)}" ${cur === v ? "selected" : ""}>${esc(label)}</option>`;
+  $("#view").innerHTML = `
+    <div class="pagehead"><h1>Tickets</h1>
+      <div style="display:flex;gap:8px"><button class="btn" id="export-btn">Export CSV</button>
+      <button class="btn primary" data-new>+ New ticket</button></div></div>
+    <section class="panel flush">
+      <nav class="tabs">${TABS.map(([k, l]) => `<a href="#/tickets" data-tab="${k}" class="${f.view === k ? "on" : ""}">${l}</a>`).join("")}</nav>
+      <form class="filters" id="filters">
+        <input type="search" name="q" value="${esc(f.q)}" placeholder="Search title, requester, INC…">
+        <select name="status">${opt("", "Any status", f.status)}${STATUSES.map((s) => opt(s, s, f.status)).join("")}</select>
+        <select name="priority">${opt("", "Any priority", f.priority)}${PRIORITIES.map((p) => opt(p, `${p} ${PRIORITY_LABELS[p]}`, f.priority)).join("")}</select>
+        <select name="category">${opt("", "Any category", f.category)}${state.settings.categories.map((c) => opt(c, c, f.category)).join("")}</select>
+        <select name="assignee">${opt("", "Anyone", f.assignee)}${opt("none", "Unassigned", f.assignee)}${agents().map((u) => opt(u.id, u.name, f.assignee)).join("")}</select>
+        <select name="sort">${[["due", "Due soonest"], ["priority", "Priority"], ["newest", "Newest"], ["oldest", "Oldest"], ["updated", "Recently updated"]].map(([k, l]) => opt(k, l, f.sort)).join("")}</select>
+        <button type="button" class="linkbtn small" id="clear-filters">Clear</button>
+        <span class="muted small" id="row-count"></span>
+      </form>
+      <div id="ticket-rows"></div>
+    </section>`;
+  $$("[data-tab]").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault(); state.filters.view = a.dataset.tab;
+    $$("[data-tab]").forEach((x) => x.classList.toggle("on", x === a)); updateTicketRows();
+  }));
+  const form = $("#filters");
+  const read = () => { Object.assign(state.filters, Object.fromEntries(new FormData(form))); updateTicketRows(); };
+  form.addEventListener("input", read);
+  form.addEventListener("submit", (e) => { e.preventDefault(); read(); });
+  $("#clear-filters").addEventListener("click", () => {
+    state.filters = { view: state.filters.view, q: "", status: "", priority: "", category: "", assignee: "", sort: "due" }; viewTickets();
+  });
+  $("#export-btn").addEventListener("click", exportCsv);
+  updateTicketRows();
+}
+
+function filteredTickets() {
+  const f = state.filters;
+  const now = Date.now();
+  let rows = state.tickets;
+  const views = {
+    active: (t) => isActive(t), mine: (t) => isActive(t) && t.assigneeId === state.me.id,
+    unassigned: (t) => isActive(t) && !t.assigneeId, replies: (t) => t.needsAttention,
+    breached: (t) => isActive(t) && slaState(t, state.settings, now)[0] === "breached",
+    done: (t) => DONE.includes(t.status), all: () => true,
+  };
+  rows = rows.filter(views[f.view] || views.active);
+  if (f.status) rows = rows.filter((t) => t.status === f.status);
+  if (f.priority) rows = rows.filter((t) => t.priority === f.priority);
+  if (f.category) rows = rows.filter((t) => t.category === f.category);
+  if (f.assignee) rows = rows.filter((t) => (f.assignee === "none" ? !t.assigneeId : t.assigneeId === f.assignee));
+  if (f.q) {
+    const q = f.q.toLowerCase();
+    const num = q.replace(/^inc-?/, "");
+    rows = rows.filter((t) => [t.title, t.description, t.requesterName, t.requesterEmail, t.department, t.ref]
+      .some((v) => String(v || "").toLowerCase().includes(q)) || (/^\d+$/.test(num) && t.number === Number(num)));
+  }
+  const sorts = {
+    due: byDue, newest: (a, b) => toDate(b.createdAt) - toDate(a.createdAt), oldest: (a, b) => toDate(a.createdAt) - toDate(b.createdAt),
+    priority: (a, b) => a.priority.localeCompare(b.priority) || toDate(a.createdAt) - toDate(b.createdAt),
+    updated: (a, b) => toDate(b.updatedAt) - toDate(a.updatedAt),
+  };
+  return [...rows].sort(sorts[f.sort] || byDue);
+}
+
+function updateTicketRows() {
+  const box = $("#ticket-rows");
+  if (!box) return;
+  const rows = filteredTickets();
+  box.innerHTML = ticketTable(rows.slice(0, 500), { take: true });
+  $("#row-count").textContent = state.ticketsLoaded ? `${rows.length} ticket${rows.length === 1 ? "" : "s"}` : "";
+}
+
+function exportCsv() {
+  const rows = filteredTickets();
+  const cols = [["Ref", (t) => t.ref], ["Title", (t) => t.title], ["Status", (t) => t.status], ["Priority", (t) => t.priority],
+    ["Category", (t) => t.category], ["Assignee", (t) => t.assigneeName], ["Requester", (t) => t.requesterName],
+    ["Requester email", (t) => t.requesterEmail], ["Department", (t) => t.department], ["Created", (t) => fmtDate(t.createdAt)],
+    ["First response", (t) => fmtDate(t.firstResponseAt)], ["Resolved", (t) => fmtDate(t.resolvedAt)],
+    ["SLA", (t) => slaState(t, state.settings)[1]], ["Source", (t) => t.source]];
+  const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = [cols.map((c) => q(c[0])).join(","), ...rows.map((t) => cols.map((c) => q(c[1](t))).join(","))].join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+  a.download = `tickets-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// =====================================================================
+// Ticket detail
+// =====================================================================
+function stopDetail() {
+  state.detailUnsub.forEach((u) => u());
+  state.detailUnsub = [];
+  state.detail = { id: null, updates: [], notes: [] };
+}
+
+function viewTicket(id) {
+  if (state.detail.id !== id) {
+    stopDetail();
+    state.detail.id = id;
+    state.detailUnsub.push(onSnapshot(query(collection(db, COL.tickets, id, "updates"), orderBy("createdAt")), (s) => {
+      state.detail.updates = s.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }));
+      renderTicketDetail();
+    }));
+    state.detailUnsub.push(onSnapshot(query(collection(db, COL.tickets, id, "notes"), orderBy("createdAt")), (s) => {
+      state.detail.notes = s.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }));
+      renderTicketDetail();
+    }));
+  }
+  $("#view").innerHTML = "";
+  renderTicketDetail();
+}
+
+function renderTicketDetail() {
+  const id = state.detail.id;
+  const t = state.tickets.find((x) => x.id === id);
+  const view = $("#view");
+  if (!t) {
+    view.innerHTML = state.ticketsLoaded
+      ? `<div class="panel empty">That ticket doesn't exist or was deleted. <a href="#/tickets">Back to tickets</a></div>`
+      : `<div class="empty">Loading…</div>`;
+    return;
+  }
+  // Keep anything the user is typing
+  const keep = {};
+  $$("#view textarea, #view [data-keep]").forEach((el) => (keep[el.id] = el.value));
+  const oldDetails = $("#details-form");
+  const keepDetails = oldDetails?.classList.contains("dirty")
+    ? $$("[name]", oldDetails).map((el) => [el.name, el.type === "checkbox" ? el.checked : el.value]) : null;
+  const activeTab = $("#update-tabs .on")?.dataset.mode || "public";
+
+  const due = slaDue(t, state.settings);
+  const rs = responseState(t, state.settings);
+  const rsBadge = { met: `<span class="badge sla-met">Met</span>`, missed: `<span class="badge sla-missed">Missed</span>`,
+    breached: `<span class="badge sla-breached">Overdue</span>`, pending: `<span class="badge">Waiting</span>` }[rs];
+  const timeline = [
+    ...state.detail.updates.map((u) => ({ ...u, _type: u.authorType === "staff" ? "public" : "requester" })),
+    ...state.detail.notes.map((n) => ({ ...n, _type: n.kind === "event" ? "event" : "internal" })),
+  ].sort((a, b) => toDate(a.createdAt) - toDate(b.createdAt));
+  const opt = (v, label, cur) => `<option value="${esc(v)}" ${cur === v ? "selected" : ""}>${esc(label)}</option>`;
+  const assigneeOpts = agents().map((u) => opt(u.id, u.name, t.assigneeId || "")).join("") +
+    (t.assigneeId && !agents().some((u) => u.id === t.assigneeId) ? opt(t.assigneeId, `${t.assigneeName} (disabled)`, t.assigneeId) : "");
+  const cats = state.settings.categories.includes(t.category) || !t.category ? state.settings.categories : [...state.settings.categories, t.category];
+
+  view.innerHTML = `
+  <div class="pagehead">
+    <div>
+      <div class="muted small"><a href="#/tickets">Tickets</a> / ${esc(t.ref)}</div>
+      <h1>${esc(t.title)}</h1>
+      <div class="badges">${statusBadge(t.status)} ${priBadge(t.priority)} ${slaBadge(t)} ${attnBadge(t)}
+        <span class="muted small">Opened ${esc(ago(t.createdAt))} ${t.source === "portal" ? "via the web form" : "by IT"}</span></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${t.needsAttention ? `<button class="btn" id="seen-btn">Mark reply as seen</button>` : ""}
+      ${t.assigneeId !== state.me.id ? `<button class="btn" data-take="${esc(t.id)}">Assign to me</button>` : ""}
+      ${isActive(t) ? `<button class="btn primary" id="resolve-btn">Resolve</button>` : ""}
+    </div>
+  </div>
+  <div class="grid side">
+    <div class="grid" style="gap:16px">
+      <section class="panel">
+        <h2>Description</h2>
+        ${t.description ? `<p class="ticket-desc">${esc(t.description)}</p>` : `<p class="muted">No description.</p>`}
+        <div class="files-row">
+          <ul class="files">${(t.attachments || []).map((a, i) => `<li><a href="#" data-file="${i}">📎 ${esc(a.name)} <span class="muted">${esc(fmtSize(a.size))}</span></a></li>`).join("")}</ul>
+          <label class="btn sm"><input type="file" id="add-files" multiple hidden> + Add files</label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Activity</h2>
+        <ul class="timeline">${timeline.length ? timeline.map((i) => i._type === "event"
+          ? `<li class="event">• ${esc(i.authorName || "System")} — ${esc(i.body)} <span title="${esc(fmtDate(i.createdAt))}">· ${esc(ago(i.createdAt))}</span></li>`
+          : `<li class="comment ${i._type}">
+              <div class="comment-head"><span class="avatar">${esc(initials(i.authorName))}</span>
+                <strong>${esc(i.authorName || "Unknown")}</strong>
+                <span class="badge">${{ public: "Reply to requester", requester: "From requester", internal: "Internal note" }[i._type]}</span>
+                <span class="muted small" title="${esc(fmtDate(i.createdAt))}">${esc(ago(i.createdAt))}</span></div>
+              <div class="comment-body">${esc(i.body)}</div></li>`).join("") : `<li class="muted">No activity yet.</li>`}</ul>
+      </section>
+
+      <section class="panel">
+        <nav class="seg" id="update-tabs">
+          <button type="button" data-mode="public" class="${activeTab === "public" ? "on" : ""}" ${t.requesterEmail ? "" : "disabled title='No requester email on this ticket'"}>Reply to requester</button>
+          <button type="button" data-mode="internal" class="${activeTab === "internal" || !t.requesterEmail ? "on" : ""}">Internal note</button>
+        </nav>
+        <form id="update-form">
+          <div class="field"><textarea id="update-body" placeholder="Write your message…"></textarea></div>
+          <div class="update-foot">
+            <span class="muted small" id="update-hint"></span>
+            ${isActive(t) ? `<label class="check"><input type="checkbox" id="update-resolve"> and resolve</label>` : ""}
+            <button class="btn primary" id="update-btn">Send</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <aside class="grid" style="gap:16px">
+      <form class="panel" id="details-form">
+        <h2>Details</h2>
+        <div class="field"><label>Status</label><select name="status">${STATUSES.map((s) => opt(s, s, t.status)).join("")}</select></div>
+        <div class="field"><label>Priority</label><select name="priority">${PRIORITIES.map((p) => opt(p, `${p} – ${PRIORITY_LABELS[p]}`, t.priority)).join("")}</select></div>
+        <div class="field"><label>Assignee</label><select name="assigneeId">${opt("", "Unassigned", t.assigneeId || "")}${assigneeOpts}</select></div>
+        <div class="field"><label>Category</label><select name="category">${opt("", "—", t.category || "")}${cats.map((c) => opt(c, c, t.category || "")).join("")}</select></div>
+        <div class="field"><label>Title</label><input name="title" value="${esc(t.title)}"></div>
+        <div class="field"><label>Requester</label><input name="requesterName" value="${esc(t.requesterName)}"></div>
+        <div class="field"><label>Requester email</label><input type="email" name="requesterEmail" value="${esc(t.requesterEmail)}"></div>
+        <div class="row"><div class="field"><label>Department</label><input name="department" value="${esc(t.department)}"></div>
+          <div class="field"><label>Phone</label><input name="phone" value="${esc(t.phone)}"></div></div>
+        ${t.requesterEmail ? `<label class="check field"><input type="checkbox" name="emailOnResolve" checked> Email requester when resolved</label>` : ""}
+        <button class="btn primary">Save changes</button>
+      </form>
+
+      <section class="panel">
+        <h2>SLA</h2>
+        <dl class="meta">
+          <dt>First response due</dt><dd>${esc(fmtDate(due.response))} ${rsBadge}</dd>
+          ${t.firstResponseAt ? `<dt>First response</dt><dd>${esc(fmtDate(t.firstResponseAt))}</dd>` : ""}
+          <dt>Resolution due</dt><dd>${esc(fmtDate(due.resolve))} ${slaBadge(t)}</dd>
+          ${t.resolvedAt ? `<dt>Resolved</dt><dd>${esc(fmtDate(t.resolvedAt))}</dd>` : ""}
+          <dt>Created</dt><dd>${esc(fmtDate(t.createdAt))}</dd>
+        </dl>
+        <p class="muted small">UK time. SLA clocks run 24/7 from when the ticket was opened.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Requester's link</h2>
+        <p class="muted small">The requester uses this to check progress and reply.</p>
+        <div style="display:flex;gap:6px"><input readonly value="${esc(trackLink(t.id))}" id="track-url" data-keep><button class="btn sm" id="copy-link">Copy</button></div>
+      </section>
+
+      ${state.me.role === "admin" ? `<button class="btn danger sm" id="delete-btn" style="justify-self:start">Delete ticket</button>` : ""}
+    </aside>
+  </div>`;
+
+  // Restore anything the user was typing
+  Object.entries(keep).forEach(([k, v]) => { const el = document.getElementById(k); if (el && k !== "track-url") el.value = v; });
+  if (keepDetails) {
+    const df = $("#details-form");
+    df.classList.add("dirty");
+    keepDetails.forEach(([name, v]) => { const el = $(`[name="${name}"]`, df); if (!el) return;
+      if (el.type === "checkbox") el.checked = v; else el.value = v; });
+  }
+  wireTicketDetail(t);
+}
+
+function wireTicketDetail(t) {
+  const mode = () => $("#update-tabs .on")?.dataset.mode || "internal";
+  const hint = () => {
+    $("#update-hint").textContent = mode() === "public"
+      ? `Emails ${t.requesterEmail} and shows on their tracking page.` : "Only the IT team can see this.";
+    $("#update-btn").textContent = mode() === "public" ? "Send reply" : "Add note";
+    $("#update-form").classList.toggle("internal-mode", mode() === "internal");
+  };
+  $$("#update-tabs button").forEach((b) => b.addEventListener("click", () => {
+    $$("#update-tabs button").forEach((x) => x.classList.toggle("on", x === b)); hint();
+  }));
+  hint();
+
+  $("#update-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = $("#update-body").value.trim();
+    const resolve = $("#update-resolve")?.checked;
+    if (!body) return;
+    const btn = $("#update-btn");
+    btn.disabled = true;
+    const now = serverTimestamp();
+    const batch = writeBatch(db);
+    const isPublic = mode() === "public";
+    if (isPublic) {
+      batch.set(doc(collection(db, COL.tickets, t.id, "updates")),
+        { body, authorType: "staff", authorId: state.me.id, authorName: state.me.name, createdAt: now });
+    } else {
+      batch.set(doc(collection(db, COL.tickets, t.id, "notes")),
+        { kind: "note", body, authorId: state.me.id, authorName: state.me.name, createdAt: now });
+    }
+    const upd = { updatedAt: now };
+    if (!t.firstResponseAt) upd.firstResponseAt = now;
+    if (isPublic) upd.needsAttention = false;
+    if (t.status === "New" && !resolve) {
+      upd.status = "Open";
+      batch.set(doc(collection(db, COL.tickets, t.id, "notes")),
+        { kind: "event", body: "Status: New → Open", authorId: state.me.id, authorName: state.me.name, createdAt: now });
+    }
+    batch.update(doc(db, COL.tickets, t.id), upd);
+    try {
+      await batch.commit();
+      $("#update-body").value = "";
+      if (isPublic) {
+        const ok = await sendEmail("external", { ...emailBase(t), to_email: t.requesterEmail, to_name: t.requesterName,
+          subject: `[${t.ref}] Update on your request`,
+          message: `Hello ${t.requesterName || ""},\n\n${state.me.name} from IT wrote:\n\n${body}\n\n` +
+            `Reply or check progress here:\n${trackLink(t.id)}`, ticket_link: trackLink(t.id) });
+        toast(ok ? `Reply sent to ${t.requesterEmail}.` : "Reply saved, but the email didn't send.", ok ? "success" : "error");
+      } else toast("Note added.");
+      if (resolve) await changeTicket({ ...t, ...upd, status: upd.status || t.status }, { status: "Resolved" }, { emailRequesterOnResolve: !isPublic });
+    } catch (err) { console.error(err); toast("Couldn't save: " + err.message, "error"); }
+    finally { btn.disabled = false; }
+  });
+
+  const df = $("#details-form");
+  df.addEventListener("input", () => df.classList.add("dirty"));
+  df.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(df));
+    df.classList.remove("dirty");
+    await changeTicket(t, {
+      status: f.status, priority: f.priority, assigneeId: f.assigneeId || null, category: f.category,
+      title: f.title.trim() || t.title, requesterName: f.requesterName.trim(), requesterEmail: f.requesterEmail.trim().toLowerCase(),
+      department: f.department.trim(), phone: f.phone.trim(),
+    }, { emailRequesterOnResolve: !!f.emailOnResolve });
+  });
+
+  $("#resolve-btn")?.addEventListener("click", () => changeTicket(t, { status: "Resolved" }, { emailRequesterOnResolve: true }));
+  $("#seen-btn")?.addEventListener("click", () => updateDoc(doc(db, COL.tickets, t.id), { needsAttention: false }));
+  $("#copy-link").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(trackLink(t.id)); toast("Link copied."); }
+    catch { $("#track-url").select(); }
+  });
+
+  $$("[data-file]").forEach((a) => a.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const file = t.attachments[Number(a.dataset.file)];
+    const win = window.open("", "_blank");
+    try { const url = await getDownloadURL(sRef(storage, file.path)); if (win) win.location = url; else location.href = url; }
+    catch (err) { win?.close(); toast("Couldn't open file: " + err.message, "error"); }
+  }));
+
+  $("#add-files").addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files);
+    const err = validateFiles(files);
+    if (err) { toast(err, "error"); return; }
+    try {
+      toast("Uploading…", "info");
+      const added = await uploadFiles(t.id, files);
+      const now = serverTimestamp();
+      const batch = writeBatch(db);
+      batch.update(doc(db, COL.tickets, t.id), { attachments: arrayUnion(...added), updatedAt: now });
+      batch.set(doc(collection(db, COL.tickets, t.id, "notes")), { kind: "event", body: `Attached ${added.map((a) => a.name).join(", ")}`,
+        authorId: state.me.id, authorName: state.me.name, createdAt: now });
+      await batch.commit();
+      toast("Files added.");
+    } catch (ex) { console.error(ex); toast("Upload failed: " + ex.message, "error"); }
+  });
+
+  $("#delete-btn")?.addEventListener("click", async () => {
+    if (!confirm(`Delete ${t.ref} permanently, including its messages and files?`)) return;
+    try {
+      for (const sub of ["updates", "notes"]) {
+        const s = await getDocs(collection(db, COL.tickets, t.id, sub));
+        await Promise.all(s.docs.map((d) => deleteDoc(d.ref)));
+      }
+      await Promise.all((t.attachments || []).map((a) => deleteObject(sRef(storage, a.path)).catch(() => {})));
+      await deleteDoc(doc(db, COL.tickets, t.id));
+      toast(`${t.ref} deleted.`);
+      location.hash = "#/tickets";
+    } catch (err) { toast("Couldn't delete: " + err.message, "error"); }
+  });
+}
+
+// =====================================================================
+// New ticket (staff)
+// =====================================================================
+const dlg = $("#new-dialog");
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-new], #new-ticket-btn")) openNew();
+  if (e.target.closest("[data-close]")) dlg.close();
+});
+function openNew() {
+  const f = $("#new-form");
+  f.reset();
+  $(".flash", f).hidden = true;
+  $("#nf-priority").innerHTML = PRIORITIES.map((p) => `<option value="${p}" ${p === "P3" ? "selected" : ""}>${p} – ${PRIORITY_LABELS[p]}</option>`).join("");
+  $("#nf-category").innerHTML = `<option value="">—</option>` + state.settings.categories.map((c) => `<option>${esc(c)}</option>`).join("");
+  $("#nf-assignee").innerHTML = `<option value="">Unassigned</option>` +
+    agents().map((u) => `<option value="${esc(u.id)}" ${u.id === state.me.id ? "selected" : ""}>${esc(u.name)}</option>`).join("");
+  dlg.showModal();
+  $("[name=title]", f).focus();
+}
+$("#new-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const f = Object.fromEntries(new FormData(form));
+  const err = $(".flash", form);
+  const files = Array.from(form.files.files);
+  const fe = !f.title.trim() ? "A ticket needs a title." : validateFiles(files);
+  if (fe) { err.textContent = fe; err.hidden = false; return; }
+  const btn = $("button.primary", form);
+  btn.disabled = true;
+  try {
+    const a = f.assigneeId ? staffById(f.assigneeId) : null;
+    const t = await createTicket({
+      title: f.title.trim(), description: f.description.trim(), requesterName: f.requesterName.trim(),
+      requesterEmail: f.requesterEmail.trim(), department: f.department.trim(), phone: f.phone.trim(),
+      category: f.category, priority: f.priority, assigneeId: a?.id, assigneeName: a?.name,
+      status: a ? "Open" : "New", source: "staff",
+    }, files, (m) => ($("#nf-progress").textContent = m));
+    if (a) await updateDoc(doc(db, COL.tickets, t.id), { assigneeEmail: a.email, firstResponseAt: serverTimestamp() });
+    await setDoc(doc(collection(db, COL.tickets, t.id, "notes")), { kind: "event", body: "Ticket logged by IT",
+      authorId: state.me.id, authorName: state.me.name, createdAt: serverTimestamp() });
+    const base = { ticket_ref: t.ref, ticket_title: f.title, priority: `${f.priority} ${PRIORITY_LABELS[f.priority]}`, status: a ? "Open" : "New",
+      requester_name: f.requesterName, requester_email: f.requesterEmail, from_name: state.settings.teamName, reply_to: state.me.email };
+    if (f.emailRequester && f.requesterEmail) {
+      sendEmail("external", { ...base, to_email: f.requesterEmail.trim(), to_name: f.requesterName,
+        subject: `We've logged your request ${t.ref}`,
+        message: `Hello ${f.requesterName || ""},\n\nWe've logged your request with IT.\n\nReference: ${t.ref}\n${f.title}\n\n` +
+          `Check progress or add information here:\n${trackLink(t.id)}`, ticket_link: trackLink(t.id) });
+    }
+    if (a && a.id !== state.me.id && a.notify !== false) {
+      sendEmail("it", { ...base, to_email: a.email, to_name: a.name, subject: `[${t.ref}] Assigned to you: ${f.title}`,
+        message: `${state.me.name} logged ${t.ref} and assigned it to you.\n\n${f.title}\n\n${f.description}`, ticket_link: dashLink(t.id) });
+    }
+    dlg.close();
+    toast(`${t.ref} created.`);
+    location.hash = `#/ticket/${t.id}`;
+  } catch (ex) { console.error(ex); err.textContent = "Couldn't create the ticket: " + ex.message; err.hidden = false; }
+  finally { btn.disabled = false; $("#nf-progress").textContent = ""; }
+});
+
+// =====================================================================
+// Reports
+// =====================================================================
+function viewReports() {
+  const days = state.reportDays;
+  const now = Date.now();
+  const since = now - days * 864e5;
+  const T = state.tickets;
+  const created = T.filter((t) => toDate(t.createdAt) >= since);
+  const resolved = T.filter((t) => t.resolvedAt && toDate(t.resolvedAt) >= since);
+  const active = T.filter(isActive);
+  const met = resolved.filter((t) => slaState(t, state.settings)[0] === "met").length;
+  const responded = created.filter((t) => t.firstResponseAt);
+  const respMet = responded.filter((t) => responseState(t, state.settings) === "met").length;
+  const hrs = resolved.map((t) => (toDate(t.resolvedAt) - toDate(t.createdAt)) / 3600e3);
+  const avg = hrs.length ? hrs.reduce((a, b) => a + b, 0) / hrs.length : null;
+  const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : "—");
+
+  const count = (rows, key, keys) => { const m = Object.fromEntries((keys || []).map((k) => [k, 0]));
+    rows.forEach((t) => { const k = key(t) || "Uncategorised"; m[k] = (m[k] || 0) + 1; }); return m; };
+  const byPriority = count(created, (t) => t.priority, PRIORITIES);
+  const byCategory = Object.entries(count(created, (t) => t.category, state.settings.categories)).sort((a, b) => b[1] - a[1]);
+  const byStatus = count(T, (t) => t.status, STATUSES);
+  const bySource = count(created, (t) => (t.source === "portal" ? "Web form" : "Logged by IT"), ["Web form", "Logged by IT"]);
+  const ageing = { "< 1 day": 0, "1–3 days": 0, "3–7 days": 0, "1–4 weeks": 0, "> 4 weeks": 0 };
+  active.forEach((t) => { const d = (now - toDate(t.createdAt)) / 864e5;
+    ageing[d < 1 ? "< 1 day" : d < 3 ? "1–3 days" : d < 7 ? "3–7 days" : d < 28 ? "1–4 weeks" : "> 4 weeks"]++; });
+  const workload = agents().map((u) => ({ name: u.name, open: active.filter((t) => t.assigneeId === u.id).length,
+    breached: active.filter((t) => t.assigneeId === u.id && slaState(t, state.settings)[0] === "breached").length,
+    resolved: resolved.filter((t) => t.assigneeId === u.id).length }));
+
+  const weeks = [];
+  const monday = new Date(); monday.setHours(0, 0, 0, 0); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  for (let i = 7; i >= 0; i--) {
+    const ws = new Date(monday); ws.setDate(ws.getDate() - 7 * i);
+    const we = new Date(ws); we.setDate(we.getDate() + 7);
+    const inWeek = (v) => v && toDate(v) >= ws && toDate(v) < we;
+    weeks.push({ label: ws.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
+      c: T.filter((t) => inWeek(t.createdAt)).length, r: T.filter((t) => inWeek(t.resolvedAt)).length });
+  }
+  const wmax = Math.max(1, ...weeks.map((w) => Math.max(w.c, w.r)));
+  const bars = (entries, color) => { const max = Math.max(1, ...entries.map((e) => e[1]));
+    return `<div class="bars">${entries.map(([k, n]) => `<div class="bar"><span>${color ? priBadge(k) : esc(k)}</span>
+      <div class="track"><div class="fill" style="width:${(100 * n) / max}%;${color ? `background:var(--${k.toLowerCase()})` : ""}"></div></div>
+      <span class="num">${n}</span></div>`).join("")}</div>`; };
+
+  $("#view").innerHTML = `
+    <div class="pagehead"><div><h1>Reports</h1><div class="muted">Last ${days} days, plus the queue as it stands now.</div></div>
+      <select id="days" style="width:auto">${[7, 30, 90, 365].map((d) => `<option value="${d}" ${d === days ? "selected" : ""}>Last ${d} days</option>`).join("")}</select></div>
+    <div class="stats">
+      <div class="stat"><div class="n">${created.length}</div><div class="l">Created</div></div>
+      <div class="stat"><div class="n">${resolved.length}</div><div class="l">Resolved</div></div>
+      <div class="stat"><div class="n">${pct(met, resolved.length)}</div><div class="l">Resolved within SLA</div></div>
+      <div class="stat"><div class="n">${pct(respMet, responded.length)}</div><div class="l">Responded within SLA</div></div>
+      <div class="stat"><div class="n">${avg == null ? "—" : avg < 48 ? avg.toFixed(1) + "h" : (avg / 24).toFixed(1) + "d"}</div><div class="l">Avg time to resolve</div></div>
+    </div>
+    <div class="grid two">
+      <section class="panel"><h2>Created vs resolved per week</h2>
+        <div class="legend"><span>Created</span><span class="res">Resolved</span></div>
+        <div class="weeks">${weeks.map((w) => `<div class="week" title="Week of ${w.label}: ${w.c} created, ${w.r} resolved">
+          <div class="cols"><div class="c" style="height:${(100 * w.c) / wmax}%"></div><div class="r" style="height:${(100 * w.r) / wmax}%"></div></div>
+          <div class="lbl">${w.label}</div></div>`).join("")}</div></section>
+      <section class="panel"><h2>Age of open tickets</h2>${bars(Object.entries(ageing))}</section>
+      <section class="panel"><h2>Created by priority</h2>${bars(Object.entries(byPriority), true)}</section>
+      <section class="panel"><h2>Created by category</h2>${bars(byCategory)}</section>
+      <section class="panel flush"><h2>Workload by person</h2><div class="table-wrap"><table>
+        <thead><tr><th>Name</th><th class="r">Open</th><th class="r">Breached</th><th class="r">Resolved (${days}d)</th></tr></thead><tbody>
+        ${workload.map((w) => `<tr><td>${esc(w.name)}</td><td class="r">${w.open}</td>
+          <td class="r">${w.breached ? `<span class="badge sla-breached">${w.breached}</span>` : 0}</td><td class="r">${w.resolved}</td></tr>`).join("")}
+        <tr><td class="muted">Unassigned</td><td class="r">${active.filter((t) => !t.assigneeId).length}</td><td></td><td></td></tr>
+        </tbody></table></div></section>
+      <section class="panel"><h2>All tickets by status</h2>${bars(Object.entries(byStatus))}
+        <h2 style="margin-top:20px">How tickets came in (${days}d)</h2>${bars(Object.entries(bySource))}</section>
+    </div>`;
+  $("#days").addEventListener("change", (e) => { state.reportDays = Number(e.target.value); viewReports(); });
+}
+
+// =====================================================================
+// Team (admin)
+// =====================================================================
+function viewTeam() {
+  const pending = state.staff.filter((s) => !s.active && !s.disabledAt);
+  const rest = state.staff.filter((s) => s.active || s.disabledAt);
+  const row = (s) => `<tr>
+    <td><strong>${esc(s.name)}</strong>${s.id === state.me.id ? ` <span class="muted small">(you)</span>` : ""}</td>
+    <td class="small">${esc(s.email)}</td><td>${s.role === "admin" ? "Admin" : "Agent"}</td>
+    <td>${s.active ? `<span class="badge sla-ok">Active</span>` : s.disabledAt ? `<span class="badge">Disabled</span>` : `<span class="badge sla-risk">Awaiting approval</span>`}</td>
+    <td class="actions">${s.id === state.me.id ? "" : !s.active && !s.disabledAt
+      ? `<button class="btn sm primary" data-staff="${s.id}" data-act="approve">Approve</button><button class="btn sm" data-staff="${s.id}" data-act="reject">Reject</button>`
+      : `<button class="btn sm" data-staff="${s.id}" data-act="${s.active ? "disable" : "enable"}">${s.active ? "Disable" : "Enable"}</button>
+         <button class="btn sm" data-staff="${s.id}" data-act="role">${s.role === "admin" ? "Make agent" : "Make admin"}</button>`}</td></tr>`;
+  $("#view").innerHTML = `
+    <div class="pagehead"><div><h1>Team</h1><div class="muted">People who can sign in to the IT dashboard.</div></div></div>
+    ${pending.length ? `<section class="panel flush attn-panel" style="margin-bottom:16px"><h2>Waiting for approval</h2><div class="table-wrap"><table>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>${pending.map(row).join("")}</tbody></table></div></section>` : ""}
+    <section class="panel flush"><h2>IT team</h2><div class="table-wrap"><table>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>${rest.map(row).join("")}</tbody></table></div></section>
+    <section class="panel" style="margin-top:16px"><h2>Adding someone</h2>
+      <p>Send them this link and ask them to choose <strong>Request access</strong>: <code>${esc(pageBase())}</code>.
+      They'll appear above for you to approve.</p>
+      <p class="muted small">To remove someone completely, disable them here, then delete their sign-in under Firebase console → Authentication.</p></section>`;
+  $$("[data-act]").forEach((b) => b.addEventListener("click", async () => {
+    const s = staffById(b.dataset.staff);
+    const act = b.dataset.act;
+    const patch = { approve: { active: true, disabledAt: null }, enable: { active: true, disabledAt: null },
+      disable: { active: false, disabledAt: serverTimestamp() }, reject: { active: false, disabledAt: serverTimestamp() },
+      role: { role: s.role === "admin" ? "agent" : "admin" } }[act];
+    try {
+      await updateDoc(doc(db, COL.staff, s.id), patch);
+      toast(`${s.name}: ${{ approve: "approved", enable: "enabled", disable: "disabled", reject: "rejected", role: patch.role === "admin" ? "now an admin" : "now an agent" }[act]}.`);
+      if (act === "approve") sendEmail("it", { to_email: s.email, to_name: s.name, from_name: state.settings.teamName,
+        subject: "Your IT dashboard access is approved", message: `Hello ${s.name},\n\n${state.me.name} has approved your access.\nSign in here: ${pageBase()}` });
+    } catch (err) { toast("Couldn't update: " + err.message, "error"); }
+  }));
+}
+
+// =====================================================================
+// Settings (admin)
+// =====================================================================
+function viewSettings() {
+  const s = state.settings;
+  $("#view").innerHTML = `
+    <div class="pagehead"><div><h1>Settings</h1></div></div>
+    <div class="grid two">
+      <form class="panel" id="general-form">
+        <h2>General</h2>
+        <div class="field"><label>Helpdesk name</label><input name="teamName" value="${esc(s.teamName)}" required></div>
+        <div class="field"><label>IT team email (new-ticket alerts go here)</label><input type="email" name="itEmail" value="${esc(s.itEmail)}" placeholder="it@yourcompany.co.uk">
+          ${s.itEmail ? "" : `<div class="flash error small" style="margin-top:6px">Not set. Nobody will be emailed about new tickets until you add one.</div>`}</div>
+        <button class="btn primary">Save</button>
+        <button class="btn" type="button" id="test-email">Send a test email</button>
+      </form>
+      <form class="panel" id="sla-form">
+        <h2>SLA targets (hours)</h2>
+        <table><thead><tr><th>Priority</th><th>First response</th><th>Resolve</th></tr></thead><tbody>
+        ${PRIORITIES.map((p) => `<tr><td>${priBadge(p)}</td>
+          <td><input type="number" min="0.25" step="0.25" name="r_${p}" value="${s.slas[p].response}" required></td>
+          <td><input type="number" min="0.25" step="0.25" name="x_${p}" value="${s.slas[p].resolve}" required></td></tr>`).join("")}
+        </tbody></table>
+        <p class="muted small">Changes apply to every ticket, including the figures in Reports.</p>
+        <button class="btn primary">Save SLAs</button>
+      </form>
+      <form class="panel" id="cat-form">
+        <h2>Categories</h2>
+        <p class="muted small">One per line. They appear on the web form in this order.</p>
+        <textarea name="categories" rows="10">${esc(s.categories.join("\n"))}</textarea>
+        <button class="btn primary">Save categories</button>
+      </form>
+      <section class="panel">
+        <h2>Links</h2>
+        <p><strong>Web form for staff to raise tickets:</strong><br><a href="index.html" target="_blank">${esc(new URL("index.html", pageBase()).href)}</a></p>
+        <p><strong>This dashboard:</strong><br><span class="small">${esc(pageBase())}</span></p>
+      </section>
+    </div>`;
+  const save = async (patch, msg) => {
+    try { await setDoc(doc(db, COL.settings, "config"), { ...state.settings, ...patch }); $$("#view form").forEach((f) => f.classList.remove("dirty")); toast(msg); }
+    catch (err) { toast("Couldn't save: " + err.message, "error"); }
+  };
+  $$("#view form").forEach((f) => f.addEventListener("input", () => f.classList.add("dirty")));
+  $("#general-form").addEventListener("submit", (e) => { e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
+    save({ teamName: f.teamName.trim(), itEmail: f.itEmail.trim() }, "Settings saved."); });
+  $("#sla-form").addEventListener("submit", (e) => { e.preventDefault(); const f = new FormData(e.target);
+    const slas = Object.fromEntries(PRIORITIES.map((p) => [p, { response: Number(f.get("r_" + p)), resolve: Number(f.get("x_" + p)) }]));
+    save({ slas }, "SLA targets saved."); });
+  $("#cat-form").addEventListener("submit", (e) => { e.preventDefault();
+    const categories = [...new Set(new FormData(e.target).get("categories").split("\n").map((c) => c.trim()).filter(Boolean))];
+    save({ categories }, "Categories saved."); });
+  $("#test-email").addEventListener("click", async () => {
+    const to = $("[name=itEmail]").value.trim() || state.me.email;
+    const ok = await sendEmail("it", { to_email: to, to_name: state.me.name, from_name: s.teamName, subject: "Test email from the IT helpdesk",
+      message: "If you can read this, EmailJS is set up correctly.", ticket_ref: "INC-00000", ticket_title: "Test", ticket_link: pageBase() });
+    toast(ok ? `Test email sent to ${to}.` : "The test email failed. Check the EmailJS template and service (see README).", ok ? "success" : "error");
+  });
+}
+
+// =====================================================================
+// My account
+// =====================================================================
+function viewAccount() {
+  const me = state.me;
+  $("#view").innerHTML = `
+    <div class="pagehead"><h1>My account</h1></div>
+    <form class="panel" id="acct-form" style="max-width:520px">
+      <div class="field"><label>Email</label><input value="${esc(me.email)}" disabled></div>
+      <div class="field"><label>Name</label><input name="name" value="${esc(me.name)}" required></div>
+      <label class="check field"><input type="checkbox" name="notify" ${me.notify !== false ? "checked" : ""}> Email me when a ticket is assigned to me</label>
+      <button class="btn primary">Save</button>
+      <button class="btn" type="button" id="pw-reset">Email me a password reset link</button>
+    </form>`;
+  $("#acct-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try { await updateDoc(doc(db, COL.staff, me.id), { name: f.get("name").trim(), notify: !!f.get("notify") }); toast("Saved."); }
+    catch (err) { toast("Couldn't save: " + err.message, "error"); }
+  });
+  $("#pw-reset").addEventListener("click", async () => {
+    try { await sendPasswordResetEmail(auth, me.email); toast(`Reset link sent to ${me.email}.`); }
+    catch (err) { toast(err.message, "error"); }
+  });
+}
+</script>
+</body>
+</html>

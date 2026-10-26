@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// IT Helpdesk attachment rules.
+// IMPORTANT: this project is shared with another app. Do NOT replace your existing
+// Storage rules. Copy the block between BEGIN and END into them, inside
+// `match /b/{bucket}/o { ... }`.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ===== BEGIN IT HELPDESK =====
+    match /it_tickets/{ticketId}/{fileName} {
+      function isItStaff() {
+        return request.auth != null
+          && firestore.exists(/databases/(default)/documents/it_staff/$(request.auth.uid))
+          && firestore.get(/databases/(default)/documents/it_staff/$(request.auth.uid)).data.active == true;
+      }
+      // Only IT can open attachments.
+      allow read: if isItStaff();
+      // Anyone submitting a ticket can upload new files (max 10 MB each), but not overwrite.
+      allow create: if request.resource.size < 10 * 1024 * 1024;
+      allow update: if false;
+      allow delete: if isItStaff();
+    }
+    // ===== END IT HELPDESK =====
+
+  }
+}

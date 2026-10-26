@@ -1,0 +1,139 @@
+rules_version = '2';
+
+// IT Helpdesk rules.
+// IMPORTANT: this Firebase project is shared with another app. Do NOT replace your
+// existing rules with this file. Copy everything between the "BEGIN" and "END"
+// markers into your existing rules, inside the
+// `match /databases/{database}/documents { ... }` block.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== BEGIN IT HELPDESK =====
+    function itStaffDoc() {
+      return get(/databases/$(database)/documents/it_staff/$(request.auth.uid));
+    }
+    function isItStaff() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/it_staff/$(request.auth.uid))
+        && itStaffDoc().data.active == true;
+    }
+    function isItAdmin() {
+      return isItStaff() && itStaffDoc().data.role == 'admin';
+    }
+    function shortText(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    // Ticket number counter: anyone may take the next number, one at a time.
+    match /it_counters/tickets {
+      allow get: if true;
+      allow create: if request.resource.data.keys().hasOnly(['next'])
+        && request.resource.data.next == 1;
+      allow update: if request.resource.data.keys().hasOnly(['next'])
+        && request.resource.data.next == resource.data.next + 1;
+    }
+
+    match /it_tickets/{tid} {
+      // Anyone holding the (unguessable) ticket ID can view that one ticket - this is
+      // how the requester's tracking link works. Listing all tickets is IT only.
+      allow get: if true;
+      allow list: if isItStaff();
+
+      // Public web form: a new, unassigned ticket using the next ticket number.
+      allow create: if isItStaff() || (
+        request.resource.data.keys().hasOnly(['number', 'ref', 'title', 'description', 'requesterName',
+          'requesterEmail', 'department', 'phone', 'category', 'priority', 'status', 'assigneeId',
+          'assigneeName', 'source', 'attachments', 'needsAttention', 'createdAt', 'updatedAt',
+          'firstResponseAt', 'resolvedAt'])
+        && request.resource.data.status == 'New'
+        && request.resource.data.assigneeId == null
+        && request.resource.data.assigneeName == null
+        && request.resource.data.firstResponseAt == null
+        && request.resource.data.resolvedAt == null
+        && request.resource.data.needsAttention == false
+        && request.resource.data.source == 'portal'
+        && request.resource.data.priority in ['P1', 'P2', 'P3', 'P4']
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 150
+        && shortText(request.resource.data.description, 5000)
+        && shortText(request.resource.data.requesterName, 120)
+        && shortText(request.resource.data.requesterEmail, 200)
+        && shortText(request.resource.data.department, 120)
+        && shortText(request.resource.data.phone, 60)
+        && shortText(request.resource.data.category, 80)
+        && request.resource.data.attachments is list
+        && request.resource.data.attachments.size() <= 5
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.number == getAfter(/databases/$(database)/documents/it_counters/tickets).data.next
+      );
+
+      // IT can change anything. A requester replying may only flag the ticket for
+      // attention, and reopen it if it was Resolved.
+      allow update: if isItStaff() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['needsAttention', 'updatedAt', 'status'])
+        && request.resource.data.needsAttention == true
+        && request.resource.data.updatedAt == request.time
+        && (request.resource.data.status == resource.data.status
+            || (resource.data.status == 'Resolved' && request.resource.data.status == 'Open'))
+      );
+      allow delete: if isItAdmin();
+
+      // Conversation the requester can see (IT replies + requester messages).
+      match /updates/{uid} {
+        allow read: if true;
+        allow create: if isItStaff() || (
+          request.resource.data.keys().hasOnly(['body', 'authorType', 'authorName', 'createdAt'])
+          && request.resource.data.authorType == 'requester'
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 5000
+          && shortText(request.resource.data.authorName, 120)
+          && request.resource.data.createdAt == request.time
+          && get(/databases/$(database)/documents/it_tickets/$(tid)).data.status != 'Closed'
+        );
+        allow update: if false;
+        allow delete: if isItAdmin();
+      }
+
+      // Internal notes and the change log - IT only.
+      match /notes/{nid} {
+        allow read, create: if isItStaff();
+        allow update: if false;
+        allow delete: if isItAdmin();
+      }
+    }
+
+    match /it_staff/{uid} {
+      allow read: if isItStaff() || (request.auth != null && request.auth.uid == uid);
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'email', 'role', 'active', 'notify', 'createdAt'])
+        && (
+          // Normal sign-up: an inactive agent waiting for approval
+          (request.resource.data.role == 'agent' && request.resource.data.active == false)
+          // First-run setup: the very first admin, created together with it_settings/setup
+          || (request.resource.data.role == 'admin' && request.resource.data.active == true
+              && !exists(/databases/$(database)/documents/it_settings/setup)
+              && existsAfter(/databases/$(database)/documents/it_settings/setup))
+        );
+      allow update: if isItAdmin()
+        || (isItStaff() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'notify']));
+      allow delete: if isItAdmin();
+    }
+
+    match /it_settings/{sid} {
+      // 'config' (categories, SLAs) is needed by the public form; 'setup' marks first-run done.
+      allow get: if sid in ['config', 'setup'] || isItStaff();
+      allow list: if isItStaff();
+      allow create: if (sid == 'setup'
+          && request.auth != null
+          && !exists(/databases/$(database)/documents/it_settings/setup)
+          && existsAfter(/databases/$(database)/documents/it_staff/$(request.auth.uid)))
+        || isItAdmin();
+      allow update, delete: if isItAdmin();
+    }
+    // ===== END IT HELPDESK =====
+
+  }
+}
