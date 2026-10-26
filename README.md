@@ -10,7 +10,7 @@ Static web pages. Data is stored in Firebase (Firestore for tickets, Storage for
 
 ## One-off setup in Firebase (about 10 minutes)
 
-Your Firebase project `meter-install-check` already runs another app. Everything here uses separate collections (`it_tickets`, `it_staff`, `it_settings`, `it_counters`) and a separate `it_tickets/` Storage folder, so the two don't touch each other's data.
+Your Firebase project `meter-install-check` already runs another app. Tickets are stored in the **IT Tickets** collection and IT staff in **IT Users**. Two small helper collections, `it_settings` and `it_counters`, hold the settings and the ticket-number counter. Attachments go in the `it-tickets/` Storage folder. None of these overlap with the meter app's data.
 
 1. **Turn on email sign-in.** Firebase console → Authentication → Sign-in method → enable **Email/Password**.
 2. **Add the Firestore rules.** Firestore Database → Rules. Copy everything between `BEGIN IT HELPDESK` and `END IT HELPDESK` in `firestore.rules` into your existing rules, inside the `match /databases/{database}/documents { … }` block. Click **Publish**.
@@ -18,7 +18,7 @@ Your Firebase project `meter-install-check` already runs another app. Everything
 3. **Add the Storage rules.** Storage → Rules. Do the same with the block from `storage.rules`. If Storage asks for permission to use Firestore in its rules, allow it.
 4. **Authorised domains.** Authentication → Settings → Authorized domains. Add the domain where you host these pages. `localhost` is already allowed.
 
-> Tip: the console's **Rules Playground** lets you test a rule before publishing. For example, an unauthenticated `get` on `it_tickets/abc` should be allowed, and an unauthenticated `list` on `it_tickets` should be denied.
+> Tip: the console's **Rules Playground** lets you test a rule before publishing. For example, an unauthenticated `get` on `IT Tickets/abc` should be allowed, and an unauthenticated `list` on `IT Tickets` should be denied.
 
 ## One-off setup in EmailJS
 
@@ -40,7 +40,7 @@ If you later make a separate template for outside requesters, put its ID in `js/
 
 **To try it on your PC:** double-click `preview.bat` and open http://localhost:8080. It needs Python, which you already have. The pages must be opened through a web address like this, not by double-clicking the HTML files.
 
-**First time:** open `dashboard.html`. You'll see **Set up the helpdesk**, which creates the first admin account. Then go to **Settings** and enter the IT team's email address, which is where new-ticket alerts go. **Send a test email** checks that EmailJS works.
+**First time:** open `dashboard.html`. You'll see **Set up the helpdesk**, which creates the first admin account. New-ticket alerts go to **itsupport@next-gen.uk**. You can change that address under **Settings**. **Send a test email** checks that EmailJS works.
 
 **Adding IT staff:** send them the dashboard link and ask them to choose **Request access**. They appear under **Team** for you to approve.
 

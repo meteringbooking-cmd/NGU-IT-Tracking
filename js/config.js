@@ -26,11 +26,13 @@ export const auth = getAuth(app);
 
 // Collection names are prefixed so they can't clash with the other app in this Firebase project.
 export const COL = {
-  tickets: "it_tickets",
-  staff: "it_staff",
+  tickets: "IT Tickets",
+  staff: "IT Users",
   settings: "it_settings",
   counters: "it_counters",
 };
+// Attachments are stored in Firebase Storage under this folder.
+export const STORAGE_DIR = "it-tickets";
 
 // ---------------------------------------------------------------------------
 // EmailJS
@@ -168,7 +170,7 @@ export async function uploadFiles(ticketId, files, onProgress = () => {}) {
     i++;
     onProgress(`Uploading ${f.name} (${i} of ${files.length})…`);
     const safe = f.name.replace(/[^\w.\- ]+/g, "_").slice(-120);
-    const path = `${COL.tickets}/${ticketId}/${Date.now()}_${safe}`;
+    const path = `${STORAGE_DIR}/${ticketId}/${Date.now()}_${safe}`;
     await uploadBytes(sRef(storage, path), f, { contentType: f.type || "application/octet-stream" });
     out.push({ name: f.name, path, size: f.size, type: f.type || "" });
   }

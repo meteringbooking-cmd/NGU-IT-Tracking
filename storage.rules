@@ -9,11 +9,14 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // ===== BEGIN IT HELPDESK =====
-    match /it_tickets/{ticketId}/{fileName} {
+    match /it-tickets/{ticketId}/{fileName} {
+      function itUser() {
+        return /databases/(default)/documents/$('IT Users')/$(request.auth.uid);
+      }
       function isItStaff() {
         return request.auth != null
-          && firestore.exists(/databases/(default)/documents/it_staff/$(request.auth.uid))
-          && firestore.get(/databases/(default)/documents/it_staff/$(request.auth.uid)).data.active == true;
+          && firestore.exists(itUser())
+          && firestore.get(itUser()).data.active == true;
       }
       // Only IT can open attachments.
       allow read: if isItStaff();

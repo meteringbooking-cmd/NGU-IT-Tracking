@@ -5,21 +5,26 @@ rules_version = '2';
 // existing rules with this file. Copy everything between the "BEGIN" and "END"
 // markers into your existing rules, inside the
 // `match /databases/{database}/documents { ... }` block.
+//
+// Collection names contain spaces ("IT Tickets", "IT Users"), so they are matched
+// with a wildcard and checked by name inside each rule.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ===== BEGIN IT HELPDESK =====
-    function itStaffDoc() {
-      return get(/databases/$(database)/documents/it_staff/$(request.auth.uid));
+    function itUsersCol() { return 'IT Users'; }
+    function itTicketsCol() { return 'IT Tickets'; }
+    function itUserPath(uid) {
+      return /databases/$(database)/documents/$(itUsersCol())/$(uid);
     }
     function isItStaff() {
       return request.auth != null
-        && exists(/databases/$(database)/documents/it_staff/$(request.auth.uid))
-        && itStaffDoc().data.active == true;
+        && exists(itUserPath(request.auth.uid))
+        && get(itUserPath(request.auth.uid)).data.active == true;
     }
     function isItAdmin() {
-      return isItStaff() && itStaffDoc().data.role == 'admin';
+      return isItStaff() && get(itUserPath(request.auth.uid)).data.role == 'admin';
     }
     function shortText(v, max) {
       return v is string && v.size() <= max;
@@ -34,14 +39,15 @@ service cloud.firestore {
         && request.resource.data.next == resource.data.next + 1;
     }
 
-    match /it_tickets/{tid} {
+    // ---------- IT Tickets ----------
+    match /{col}/{tid} {
       // Anyone holding the (unguessable) ticket ID can view that one ticket - this is
       // how the requester's tracking link works. Listing all tickets is IT only.
-      allow get: if true;
-      allow list: if isItStaff();
+      allow get: if col == itTicketsCol();
+      allow list: if col == itTicketsCol() && isItStaff();
 
       // Public web form: a new, unassigned ticket using the next ticket number.
-      allow create: if isItStaff() || (
+      allow create: if col == itTicketsCol() && (isItStaff() || (
         request.resource.data.keys().hasOnly(['number', 'ref', 'title', 'description', 'requesterName',
           'requesterEmail', 'department', 'phone', 'category', 'priority', 'status', 'assigneeId',
           'assigneeName', 'source', 'attachments', 'needsAttention', 'createdAt', 'updatedAt',
@@ -67,46 +73,46 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
         && request.resource.data.number == getAfter(/databases/$(database)/documents/it_counters/tickets).data.next
-      );
+      ));
 
       // IT can change anything. A requester replying may only flag the ticket for
       // attention, and reopen it if it was Resolved.
-      allow update: if isItStaff() || (
+      allow update: if col == itTicketsCol() && (isItStaff() || (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['needsAttention', 'updatedAt', 'status'])
         && request.resource.data.needsAttention == true
         && request.resource.data.updatedAt == request.time
         && (request.resource.data.status == resource.data.status
             || (resource.data.status == 'Resolved' && request.resource.data.status == 'Open'))
-      );
-      allow delete: if isItAdmin();
+      ));
+      allow delete: if col == itTicketsCol() && isItAdmin();
 
       // Conversation the requester can see (IT replies + requester messages).
       match /updates/{uid} {
-        allow read: if true;
-        allow create: if isItStaff() || (
+        allow read: if col == itTicketsCol();
+        allow create: if col == itTicketsCol() && (isItStaff() || (
           request.resource.data.keys().hasOnly(['body', 'authorType', 'authorName', 'createdAt'])
           && request.resource.data.authorType == 'requester'
           && request.resource.data.body is string
           && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 5000
           && shortText(request.resource.data.authorName, 120)
           && request.resource.data.createdAt == request.time
-          && get(/databases/$(database)/documents/it_tickets/$(tid)).data.status != 'Closed'
-        );
-        allow update: if false;
-        allow delete: if isItAdmin();
+          && get(/databases/$(database)/documents/$(col)/$(tid)).data.status != 'Closed'
+        ));
+        allow delete: if col == itTicketsCol() && isItAdmin();
       }
 
       // Internal notes and the change log - IT only.
       match /notes/{nid} {
-        allow read, create: if isItStaff();
-        allow update: if false;
-        allow delete: if isItAdmin();
+        allow read, create: if col == itTicketsCol() && isItStaff();
+        allow delete: if col == itTicketsCol() && isItAdmin();
       }
     }
 
-    match /it_staff/{uid} {
-      allow read: if isItStaff() || (request.auth != null && request.auth.uid == uid);
-      allow create: if request.auth != null && request.auth.uid == uid
+    // ---------- IT Users ----------
+    match /{col}/{uid} {
+      allow read: if col == itUsersCol()
+        && (isItStaff() || (request.auth != null && request.auth.uid == uid));
+      allow create: if col == itUsersCol() && request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['name', 'email', 'role', 'active', 'notify', 'createdAt'])
         && (
           // Normal sign-up: an inactive agent waiting for approval
@@ -116,12 +122,13 @@ service cloud.firestore {
               && !exists(/databases/$(database)/documents/it_settings/setup)
               && existsAfter(/databases/$(database)/documents/it_settings/setup))
         );
-      allow update: if isItAdmin()
+      allow update: if col == itUsersCol() && (isItAdmin()
         || (isItStaff() && request.auth.uid == uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'notify']));
-      allow delete: if isItAdmin();
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'notify'])));
+      allow delete: if col == itUsersCol() && isItAdmin();
     }
 
+    // ---------- Settings ----------
     match /it_settings/{sid} {
       // 'config' (categories, SLAs) is needed by the public form; 'setup' marks first-run done.
       allow get: if sid in ['config', 'setup'] || isItStaff();
@@ -129,7 +136,7 @@ service cloud.firestore {
       allow create: if (sid == 'setup'
           && request.auth != null
           && !exists(/databases/$(database)/documents/it_settings/setup)
-          && existsAfter(/databases/$(database)/documents/it_staff/$(request.auth.uid)))
+          && existsAfter(itUserPath(request.auth.uid)))
         || isItAdmin();
       allow update, delete: if isItAdmin();
     }
