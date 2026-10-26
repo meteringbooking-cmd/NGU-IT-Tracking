@@ -171,7 +171,8 @@ function showAuth(which) {
 $$("[data-show]").forEach((b) => b.addEventListener("click", () => showAuth(b.dataset.show)));
 
 function authError(form, err) {
-  const box = $(".flash.error", form);
+  const box = $(".flash", form);
+  box.className = "flash error";
   const code = err?.code || "";
   box.textContent = {
     "auth/invalid-credential": "Wrong email or password.",
@@ -188,10 +189,27 @@ function authError(form, err) {
 
 $("#signin-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  $("#si-err").hidden = true;
-  try { await signInWithEmailAndPassword(auth, $("#si-email").value.trim(), $("#si-pass").value); }
-  catch (err) { authError(e.target, err); }
+  const box = $("#si-err");
+  box.hidden = true;
+  box.className = "flash error";
+  const btn = $("button.primary", e.target);
+  btn.disabled = true;
+  btn.textContent = "Signing in…";
+  try {
+    await signInWithEmailAndPassword(auth, $("#si-email").value.trim(), $("#si-pass").value);
+    btn.textContent = "Loading your account…";
+  } catch (err) {
+    console.error("Sign-in failed", err);
+    authError(e.target, err);
+    btn.disabled = false;
+    btn.textContent = "Sign in";
+  }
 });
+function resetSignInButton() {
+  const btn = $("#signin-form button.primary");
+  btn.disabled = false;
+  btn.textContent = "Sign in";
+}
 
 $("#forgot-btn").addEventListener("click", async () => {
   const email = $("#si-email").value.trim();
@@ -206,6 +224,7 @@ $("#forgot-btn").addEventListener("click", async () => {
 $("#request-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = Object.fromEntries(new FormData(e.target));
+  creatingAccount = true;
   try {
     const cred = await createUserWithEmailAndPassword(auth, f.email.trim(), f.password);
     await updateProfile(cred.user, { displayName: f.name.trim() });
@@ -216,14 +235,19 @@ $("#request-form").addEventListener("submit", async (e) => {
     const s = await loadSettingsDoc();
     sendEmail("it", { to_email: s.itEmail, to_name: s.teamName, subject: `${f.name} has requested helpdesk access`,
       message: `${f.name} (${f.email}) has asked for access to the IT dashboard.\n\nApprove them under Team: ${pageBase()}#/team` });
-  } catch (err) { authError(e.target, err); }
+  } catch (err) { console.error("Request access failed", err); authError(e.target, err); }
+  finally { creatingAccount = false; }
 });
 
 $("#setup-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = Object.fromEntries(new FormData(e.target));
+  const btn = $("button.primary", e.target);
+  btn.disabled = true;
+  creatingAccount = true;
   try {
-    const cred = await createUserWithEmailAndPassword(auth, f.email.trim(), f.password);
+    const cred = auth.currentUser ? { user: auth.currentUser }
+      : await createUserWithEmailAndPassword(auth, f.email.trim(), f.password);
     await updateProfile(cred.user, { displayName: f.name.trim() });
     const batch = writeBatch(db);
     batch.set(doc(db, COL.staff, cred.user.uid), {
@@ -233,9 +257,10 @@ $("#setup-form").addEventListener("submit", async (e) => {
     batch.set(doc(db, COL.settings, "setup"), { by: cred.user.uid, at: serverTimestamp() });
     await batch.commit();
     await setDoc(doc(db, COL.settings, "config"), DEFAULT_SETTINGS);
-    toast("Your admin account is ready. Next, set the IT email address under Settings.");
+    toast("Your admin account is ready.");
     location.hash = "#/settings";
-  } catch (err) { authError(e.target, err); }
+  } catch (err) { console.error("Setup failed", err); authError(e.target, err); }
+  finally { btn.disabled = false; creatingAccount = false; }
 });
 
 $("#signout-btn").addEventListener("click", () => signOut(auth));
@@ -250,21 +275,39 @@ const greeting = () => { const h = Number(new Date().toLocaleString("en-GB", { h
   return h < 12 ? "morning" : h < 18 ? "afternoon" : "evening"; };
 
 let meUnsub = null;
+let loadTimer = null;
+let creatingAccount = false;     // true while setup / request-access is writing the IT Users record
 onAuthStateChanged(auth, async (user) => {
   stopAll();
   if (meUnsub) { meUnsub(); meUnsub = null; }
+  clearTimeout(loadTimer);
   state.user = user;
+  state.me = null;               // forget any previous sign-in
   if (!user) {
     let setupDone = true;
-    try { setupDone = (await getDoc(doc(db, COL.settings, "setup"))).exists(); } catch {}
+    try { setupDone = (await getDoc(doc(db, COL.settings, "setup"))).exists(); }
+    catch (err) { console.warn("Couldn't check first-run setup", err); }
+    resetSignInButton();
     showAuth(setupDone ? "signin-form" : "setup-form");
     return;
   }
-  meUnsub = onSnapshot(doc(db, COL.staff, user.uid), (snap) => {
+  console.info("Signed in as", user.email, "- loading", COL.staff, "record", user.uid);
+  loadTimer = setTimeout(() => signInProblem(user,
+    "Signed in, but your IT Users record didn't load. Check your internet connection and refresh the page."), 12000);
+  meUnsub = onSnapshot(doc(db, COL.staff, user.uid), async (snap) => {
+    clearTimeout(loadTimer);
     const me = snap.exists() ? { id: snap.id, ...snap.data() } : null;
-    const wasActive = state.me?.active;
+    const wasActive = !!state.me?.active;
     state.me = me;
-    if (!me || !me.active) {
+    if (!me) {
+      if (creatingAccount) return;
+      // Signed in, but no record in IT Users (e.g. first-run setup was interrupted)
+      let setupDone = true;
+      try { setupDone = (await getDoc(doc(db, COL.settings, "setup"))).exists(); } catch {}
+      if (!setupDone) return finishSetupPrompt(user);
+      return signInProblem(user, `${user.email} has a sign-in but isn't registered in IT Users yet.`, true);
+    }
+    if (!me.active) {
       stopAll();
       $("#pending-email").textContent = user.email;
       showAuth("pending-view");
@@ -273,11 +316,47 @@ onAuthStateChanged(auth, async (user) => {
     if (!wasActive) startApp();
     else applyMe();
   }, (err) => {
-    console.error(err);
-    $("#pending-email").textContent = user.email;
-    showAuth("pending-view");
+    clearTimeout(loadTimer);
+    console.error("Couldn't read IT Users record", err);
+    signInProblem(user, err.code === "permission-denied"
+      ? "Firebase blocked access to the IT Users collection. Check the Firestore rules from firestore.rules have been published."
+      : `Couldn't load your account: ${err.message}`);
   });
 });
+
+// Shown on the sign-in screen when something stops the dashboard opening
+function signInProblem(user, message, offerRequest = false) {
+  showAuth("signin-form");
+  resetSignInButton();
+  const box = $("#si-err");
+  box.className = "flash error";
+  box.innerHTML = `${esc(message)}${offerRequest ? ` <button type="button" class="linkbtn" id="fix-request">Request access with this account</button>` : ""}
+    <br><button type="button" class="linkbtn" id="fix-signout">Sign out</button>`;
+  box.hidden = false;
+  $("#fix-signout").onclick = () => signOut(auth);
+  if (offerRequest) $("#fix-request").onclick = async () => {
+    try {
+      await setDoc(doc(db, COL.staff, user.uid), { name: user.displayName || user.email.split("@")[0], email: user.email.toLowerCase(),
+        role: "agent", active: false, notify: true, createdAt: serverTimestamp() });
+    } catch (err) { signInProblem(user, "Couldn't create the request: " + err.message); }
+  };
+}
+
+// First-run setup was interrupted after the sign-in was created: let that account become the admin
+function finishSetupPrompt(user) {
+  showAuth("setup-form");
+  const f = $("#setup-form");
+  $("[name=email]", f).value = user.email;
+  $("[name=email]", f).readOnly = true;
+  $("[name=password]", f).closest(".field").hidden = true;
+  $("[name=password]", f).required = false;
+  if (user.displayName) $("[name=name]", f).value = user.displayName;
+  $("button.primary", f).textContent = "Finish setup";
+  const box = $(".flash.error", f);
+  box.className = "flash info";
+  box.textContent = "Your sign-in exists but setup didn't finish. Confirm your name to complete it.";
+  box.hidden = false;
+}
 
 function stopAll() {
   state.unsub.forEach((u) => u());
